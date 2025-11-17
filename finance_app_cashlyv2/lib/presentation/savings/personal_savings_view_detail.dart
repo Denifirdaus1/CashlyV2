@@ -31,36 +31,39 @@ class PersonalGoalDetailPage extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(title: Text(name)),
-      body: RefreshIndicator(
-        onRefresh: () async {
-          ref.invalidate(personalGoalEntriesProvider(goalId));
-          ref.invalidate(personalGoalsProvider);
-          await ref.read(personalGoalEntriesProvider(goalId).future);
-        },
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 80),
-          children: [
-            if (summary != null) _GoalHeader(summary: summary),
-            const SizedBox(height: 8),
-            entries.when(
-              data: (items) => items.isEmpty
-                  ? const Padding(
-                      padding: EdgeInsets.all(24),
-                      child: Center(child: Text('Belum ada transaksi tabungan.')),
-                    )
-                  : Column(
-                      children: items
-                          .map((e) => _EntryTile(entry: e))
-                          .toList(),
+      body: Container(
+        color: const Color(0xFFEFF7F6),
+        child: RefreshIndicator(
+          onRefresh: () async {
+            ref.invalidate(personalGoalEntriesProvider(goalId));
+            ref.invalidate(personalGoalsProvider);
+            await ref.read(personalGoalEntriesProvider(goalId).future);
+          },
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 80),
+            children: [
+              if (summary != null) _GoalHeader(summary: summary),
+              const SizedBox(height: 8),
+              entries.when(
+                data: (items) => items.isEmpty
+                    ? const Padding(
+                        padding: EdgeInsets.all(24),
+                        child: Center(child: Text('Belum ada transaksi tabungan.')),
+                      )
+                    : Column(
+                        children: items
+                            .map((e) => _EntryTile(entry: e))
+                            .toList(),
+                      ),
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (err, stack) =>
+                    Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Text(err.toString(), style: const TextStyle(color: Colors.red)),
                     ),
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (err, stack) =>
-                  Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Text(err.toString(), style: const TextStyle(color: Colors.red)),
-                  ),
-            ),
-          ],
+              ),
+            ],
+          ),
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -236,7 +239,15 @@ class _GoalHeader extends StatelessWidget {
           children: [
             Text(summary.name, style: const TextStyle(fontWeight: FontWeight.w700)),
             const SizedBox(height: 8),
-            LinearProgressIndicator(value: progress),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: LinearProgressIndicator(
+                value: progress,
+                minHeight: 8,
+                backgroundColor: Colors.grey.shade200,
+                color: const Color(0xFF68CEC3),
+              ),
+            ),
             const SizedBox(height: 6),
             Text(
               '${summary.currentAmount.format()} / ${summary.targetAmount.format()}',

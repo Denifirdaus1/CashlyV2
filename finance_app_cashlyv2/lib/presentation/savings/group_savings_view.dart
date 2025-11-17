@@ -17,30 +17,33 @@ class GroupSavingsView extends ConsumerWidget {
 
     return Stack(
       children: [
-        RefreshIndicator(
-          onRefresh: () async {
-            ref.invalidate(groupSummariesProvider);
-            await ref.read(groupSummariesProvider.future);
-          },
-          child: groups.when(
-            data: (items) => items.isEmpty
-                ? ListView(
-                    children: const [
-                      SizedBox(height: 48),
-                      Center(child: Text('Belum ada kelompok tabungan.')),
-                    ],
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(12, 8, 12, 96),
-                    itemCount: items.length,
-                    itemBuilder: (ctx, index) =>
-                        _GroupTile(summary: items[index]),
-                  ),
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (err, stack) => Center(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text(err.toString(), style: const TextStyle(color: Colors.red)),
+        Container(
+          color: const Color(0xFFEFF7F6),
+          child: RefreshIndicator(
+            onRefresh: () async {
+              ref.invalidate(groupSummariesProvider);
+              await ref.read(groupSummariesProvider.future);
+            },
+            child: groups.when(
+              data: (items) => items.isEmpty
+                  ? ListView(
+                      children: const [
+                        SizedBox(height: 48),
+                        Center(child: Text('Belum ada kelompok tabungan.')),
+                      ],
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 96),
+                      itemCount: items.length,
+                      itemBuilder: (ctx, index) =>
+                          _GroupTile(summary: items[index]),
+                    ),
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (err, stack) => Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text(err.toString(), style: const TextStyle(color: Colors.red)),
+                ),
               ),
             ),
           ),
@@ -197,7 +200,8 @@ class _GroupTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      child: ListTile(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
         onTap: () {
           Navigator.of(context).push(MaterialPageRoute(
             builder: (_) => GroupDetailPage(
@@ -206,19 +210,49 @@ class _GroupTile extends StatelessWidget {
             ),
           ));
         },
-        title: Text(summary.name, style: const TextStyle(fontWeight: FontWeight.w600)),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 6),
-            LinearProgressIndicator(value: summary.progress),
-            const SizedBox(height: 6),
-            Text(
-              '${summary.totalContributed.format()} / ${summary.targetTotal.format()}',
-              style: const TextStyle(fontSize: 12),
-            ),
-            Text('Anggota: ${summary.memberCount}', style: const TextStyle(fontSize: 12)),
-          ],
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF68CEC3).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.groups, color: Color(0xFF68CEC3)),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(summary.name,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w700, fontSize: 15)),
+                    const SizedBox(height: 6),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: LinearProgressIndicator(
+                        value: summary.progress,
+                        minHeight: 8,
+                        backgroundColor: Colors.grey.shade200,
+                        color: const Color(0xFF68CEC3),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      '${summary.totalContributed.format()} / ${summary.targetTotal.format()}',
+                      style: const TextStyle(fontSize: 12, color: Colors.black54),
+                    ),
+                    Text('Anggota: ${summary.memberCount}',
+                        style: const TextStyle(fontSize: 12, color: Colors.black54)),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

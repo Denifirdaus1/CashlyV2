@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-
+import 'core/theme.dart';
 import 'presentation/home/home_screen.dart';
 
 class FinanceApp extends StatelessWidget {
@@ -9,10 +9,7 @@ class FinanceApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Cashly V2',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
-        useMaterial3: true,
-      ),
+      theme: AppTheme.build(),
       home: const HomeScreen(),
     );
   }

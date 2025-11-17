@@ -12,11 +12,20 @@ class SavingsView extends StatelessWidget {
       length: 2,
       child: Column(
         children: const [
-          TabBar(
-            tabs: [
-              Tab(text: 'Pribadi'),
-              Tab(text: 'Kelompok'),
-            ],
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: TabBar(
+              labelColor: Colors.white,
+              unselectedLabelColor: Colors.black54,
+              indicator: BoxDecoration(
+                color: Color(0xFF68CEC3),
+                borderRadius: BorderRadius.all(Radius.circular(12)),
+              ),
+              tabs: [
+                Tab(text: 'Pribadi'),
+                Tab(text: 'Kelompok'),
+              ],
+            ),
           ),
           Expanded(
             child: TabBarView(

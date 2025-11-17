@@ -37,8 +37,9 @@ class CashflowView extends ConsumerWidget {
                 error: (err, stack) => _ErrorText(message: err.toString()),
               ),
               const SizedBox(height: 8),
+              const SizedBox(height: 4),
               const Text('Transaksi Terbaru',
-                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
               const SizedBox(height: 4),
               transactions.when(
                 data: (items) => items.isEmpty
@@ -255,7 +256,11 @@ class _CashSummary extends StatelessWidget {
               child: _SummaryCard(
                 title: 'Income Hari Ini',
                 value: rollup.today.totalIncome.format(),
-                color: Colors.green.shade100,
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFAFF0E8), Color(0xFF68CEC3)],
+                ),
+                icon: Icons.arrow_downward,
+                iconColor: Colors.green.shade700,
               ),
             ),
             const SizedBox(width: 8),
@@ -263,7 +268,11 @@ class _CashSummary extends StatelessWidget {
               child: _SummaryCard(
                 title: 'Expense Hari Ini',
                 value: rollup.today.totalExpense.format(),
-                color: Colors.red.shade100,
+                gradient: LinearGradient(
+                  colors: [Colors.red.shade50, Colors.red.shade200],
+                ),
+                icon: Icons.arrow_upward,
+                iconColor: Colors.red.shade700,
               ),
             ),
           ],
@@ -275,7 +284,11 @@ class _CashSummary extends StatelessWidget {
               child: _SummaryCard(
                 title: 'Income Bulan Ini',
                 value: rollup.month.totalIncome.format(),
-                color: Colors.green.shade50,
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFE8FDFB), Color(0xFF68CEC3)],
+                ),
+                icon: Icons.trending_up,
+                iconColor: Colors.green.shade700,
               ),
             ),
             const SizedBox(width: 8),
@@ -283,7 +296,11 @@ class _CashSummary extends StatelessWidget {
               child: _SummaryCard(
                 title: 'Expense Bulan Ini',
                 value: rollup.month.totalExpense.format(),
-                color: Colors.red.shade50,
+                gradient: LinearGradient(
+                  colors: [Colors.red.shade50, Colors.red.shade200],
+                ),
+                icon: Icons.trending_down,
+                iconColor: Colors.red.shade700,
               ),
             ),
           ],
@@ -292,7 +309,11 @@ class _CashSummary extends StatelessWidget {
         _SummaryCard(
           title: 'Saldo',
           value: rollup.month.balance.format(),
-          color: Colors.blue.shade50,
+          gradient: const LinearGradient(
+            colors: [Color(0xFF68CEC3), Color(0xFF4DB4A9)],
+          ),
+          icon: Icons.account_balance_wallet,
+          iconColor: Colors.white,
           highlighted: true,
         ),
       ],
@@ -303,34 +324,57 @@ class _CashSummary extends StatelessWidget {
 class _SummaryCard extends StatelessWidget {
   final String title;
   final String value;
-  final Color color;
+  final LinearGradient gradient;
   final bool highlighted;
+  final IconData icon;
+  final Color iconColor;
 
   const _SummaryCard({
     required this.title,
     required this.value,
-    required this.color,
+    required this.gradient,
+    required this.icon,
+    required this.iconColor,
     this.highlighted = false,
   });
 
   @override
   Widget build(BuildContext context) {
     return Card(
-      color: color,
+      color: Colors.white,
       child: Padding(
         padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Row(
           children: [
-            Text(title, style: const TextStyle(fontSize: 12)),
-            const SizedBox(height: 4),
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: highlighted ? Colors.blue.shade800 : Colors.black,
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                gradient: gradient,
+                borderRadius: BorderRadius.circular(12),
               ),
+              child: Icon(icon,
+                  color: highlighted ? Colors.white : iconColor, size: 22),
+            ),
+            const SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey.shade700,
+                    )),
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: highlighted ? Colors.black : Colors.black87,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -349,7 +393,8 @@ class _TransactionTile extends StatelessWidget {
     return Card(
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor: isIncome ? Colors.green.shade100 : Colors.red.shade100,
+          backgroundColor:
+              isIncome ? Colors.green.shade100 : Colors.red.shade100,
           child: Icon(
             isIncome ? Icons.arrow_downward : Icons.arrow_upward,
             color: isIncome ? Colors.green : Colors.red,
@@ -359,16 +404,41 @@ class _TransactionTile extends StatelessWidget {
           transaction.amount.format(),
           style: const TextStyle(fontWeight: FontWeight.w700),
         ),
-        subtitle: Text(
-          '${DateFormat.yMMMd().format(transaction.transactionDate)}'
-          '${transaction.note != null && transaction.note!.isNotEmpty ? ' \u2022 ${transaction.note}' : ''}',
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              DateFormat.yMMMd().format(transaction.transactionDate),
+              style: const TextStyle(fontSize: 12),
+            ),
+            if (transaction.note != null && transaction.note!.isNotEmpty)
+              Text(
+                transaction.note!,
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+              ),
+          ],
         ),
-        trailing: Text(
-          isIncome ? 'Income' : 'Expense',
-          style: TextStyle(
-            color: isIncome ? Colors.green : Colors.red,
-            fontWeight: FontWeight.w600,
-          ),
+        trailing: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: (isIncome ? Colors.green : Colors.red)
+                    .withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                isIncome ? 'Income' : 'Expense',
+                style: TextStyle(
+                  color: isIncome ? Colors.green : Colors.red,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

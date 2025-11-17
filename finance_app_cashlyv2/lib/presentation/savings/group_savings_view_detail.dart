@@ -1,13 +1,18 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
 import '../../application/providers.dart';
+import '../../core/input_formatters/money_input_formatter.dart';
 import '../../core/money.dart';
 import '../../domain/enums.dart';
 import '../../domain/models/group_member_summary.dart';
 import '../../domain/models/group_summary.dart';
 import '../../domain/models/saving_group_entry.dart';
+import '../../infrastructure/supabase/supabase_storage_service.dart';
 
 class GroupDetailPage extends ConsumerWidget {
   final String groupId;
@@ -55,6 +60,8 @@ class GroupDetailPage extends ConsumerWidget {
             _SummaryTab(summary: summary),
             _MemberTab(
               members: memberSummaries,
+              entries: entries,
+              groupId: groupId,
               onAddMember: () => _showAddMember(context, ref),
             ),
             _TransactionsTab(
@@ -76,6 +83,9 @@ class GroupDetailPage extends ConsumerWidget {
     final formKey = GlobalKey<FormState>();
     final nameCtrl = TextEditingController();
     final targetCtrl = TextEditingController();
+    final picker = ImagePicker();
+    File? pickedImage;
+    final storage = SupabaseStorageService(ref.read(supabaseClientProvider));
 
     await showModalBottomSheet(
       context: context,
@@ -103,6 +113,23 @@ class GroupDetailPage extends ConsumerWidget {
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
+                GestureDetector(
+                  onTap: () async {
+                    final file = await picker.pickImage(source: ImageSource.gallery);
+                    if (file != null) {
+                      pickedImage = File(file.path);
+                    }
+                  },
+                  child: CircleAvatar(
+                    radius: 28,
+                    backgroundImage:
+                        pickedImage != null ? FileImage(pickedImage!) : null,
+                    child: pickedImage == null
+                        ? const Icon(Icons.camera_alt)
+                        : null,
+                  ),
+                ),
+                const SizedBox(height: 8),
                 const Text('Tambah Anggota', style: TextStyle(fontWeight: FontWeight.w600)),
                 TextFormField(
                   controller: nameCtrl,
@@ -111,10 +138,23 @@ class GroupDetailPage extends ConsumerWidget {
                 ),
                 TextFormField(
                   controller: targetCtrl,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [MoneyInputFormatter()],
                   decoration: const InputDecoration(
                       labelText: 'Target nominal (opsional)'),
+                ),
+                const SizedBox(height: 8),
+                _PresetRow(
+                  onAdd: (inc) {
+                    final current = Money.fromFormatted(targetCtrl.text);
+                    final updated = Money(current.cents + inc);
+                    targetCtrl.text =
+                        NumberFormat.decimalPattern('id_ID').format(updated.cents ~/ 100);
+                  },
+                  onSet: (val) {
+                    targetCtrl.text =
+                        NumberFormat.decimalPattern('id_ID').format(val ~/ 100);
+                  },
                 ),
                 const SizedBox(height: 12),
                 SizedBox(
@@ -124,23 +164,21 @@ class GroupDetailPage extends ConsumerWidget {
                       if (!formKey.currentState!.validate()) return;
                       final targetRaw = targetCtrl.text.trim();
                       try {
+                        String? avatarUrl;
+                        if (pickedImage != null) {
+                          avatarUrl = await storage.uploadAvatar(pickedImage!);
+                        }
                         await ref.read(groupSavingRepositoryProvider).addMember(
                               groupId: groupId,
                               displayName: nameCtrl.text,
                               targetAmount: targetRaw.isEmpty
                                   ? null
-                                  : Money.fromDouble(
-                                      double.parse(targetRaw.replaceAll(',', '')),
-                                    ),
+                                  : Money.fromFormatted(targetRaw),
+                              avatarUrl: avatarUrl,
                             );
                         ref.invalidate(groupMemberSummariesProvider(groupId));
                         ref.invalidate(groupSummariesProvider);
-                        if (context.mounted) {
-                          Navigator.of(context).pop();
-                          messenger.showSnackBar(
-                            const SnackBar(content: Text('Anggota ditambahkan')),
-                          );
-                        }
+                        if (context.mounted) Navigator.of(context).pop();
                       } catch (e) {
                         messenger.showSnackBar(
                           SnackBar(content: Text('Gagal simpan: $e')),
@@ -245,14 +283,26 @@ class GroupDetailPage extends ConsumerWidget {
                 ),
                 TextFormField(
                   controller: amountCtrl,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [MoneyInputFormatter()],
                   decoration: const InputDecoration(labelText: 'Nominal'),
                   validator: (val) {
                     if (val == null || val.isEmpty) return 'Harus diisi';
-                    return double.tryParse(val.replaceAll(',', '')) == null
-                        ? 'Nominal tidak valid'
-                        : null;
+                    final digits = val.replaceAll(RegExp(r'[^0-9]'), '');
+                    return digits.isEmpty ? 'Nominal tidak valid' : null;
+                  },
+                ),
+                const SizedBox(height: 8),
+                _PresetRow(
+                  onAdd: (inc) {
+                    final current = Money.fromFormatted(amountCtrl.text);
+                    final updated = Money(current.cents + inc);
+                    amountCtrl.text =
+                        NumberFormat.decimalPattern('id_ID').format(updated.cents ~/ 100);
+                  },
+                  onSet: (val) {
+                    amountCtrl.text =
+                        NumberFormat.decimalPattern('id_ID').format(val ~/ 100);
                   },
                 ),
                 TextFormField(
@@ -266,15 +316,13 @@ class GroupDetailPage extends ConsumerWidget {
                     onPressed: () async {
                       if (!formKey.currentState!.validate()) return;
                       if (selectedMemberId == null) return;
-                      final amount =
-                          double.parse(amountCtrl.text.replaceAll(',', ''));
+                      final amount = Money.fromFormatted(amountCtrl.text);
                       final member = members.firstWhere(
                         (m) => m.memberId == selectedMemberId,
                         orElse: () => members.first,
                       );
                       if (selectedType == SavingEntryType.withdraw &&
-                          Money.fromDouble(amount).cents >
-                              member.totalContributed.cents) {
+                          amount.cents > member.totalContributed.cents) {
                         messenger.showSnackBar(
                           SnackBar(
                             content: Text(
@@ -289,7 +337,7 @@ class GroupDetailPage extends ConsumerWidget {
                               groupId: groupId,
                               memberId: selectedMemberId!,
                               transactionDate: selectedDate,
-                              amount: Money.fromDouble(amount),
+                              amount: amount,
                               type: selectedType,
                               note: noteCtrl.text.isEmpty ? null : noteCtrl.text,
                             );
@@ -361,16 +409,20 @@ class _SummaryTab extends StatelessWidget {
   }
 }
 
-class _MemberTab extends StatelessWidget {
+class _MemberTab extends ConsumerWidget {
   final AsyncValue<List<GroupMemberSummary>> members;
+  final AsyncValue<List<SavingGroupEntry>> entries;
+  final String groupId;
   final VoidCallback onAddMember;
   const _MemberTab({
     required this.members,
+    required this.entries,
+    required this.groupId,
     required this.onAddMember,
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Column(
       children: [
         Padding(
@@ -391,8 +443,42 @@ class _MemberTab extends StatelessWidget {
                 : ListView.builder(
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     itemCount: items.length,
-                    itemBuilder: (ctx, index) =>
-                        _MemberTile(summary: items[index]),
+                    itemBuilder: (ctx, index) {
+                      final member = items[index];
+                      return _MemberTile(
+                        summary: member,
+                        onTap: () => _showMemberTransactions(
+                          context,
+                          member,
+                          entries.asData?.value ?? [],
+                        ),
+                        onEdit: () => _showEditMemberSheet(
+                          context,
+                          ref,
+                          member,
+                        ),
+                        onDelete: () async {
+                          final messenger = ScaffoldMessenger.of(context);
+                          try {
+                            await ref
+                                .read(groupSavingRepositoryProvider)
+                                .deleteMember(member.memberId);
+                            ref.invalidate(groupMemberSummariesProvider(groupId));
+                            ref.invalidate(groupEntriesProvider(groupId));
+                            ref.invalidate(groupSummariesProvider);
+                            messenger.showSnackBar(
+                              SnackBar(
+                                  content:
+                                      Text('Anggota ${member.displayName} dihapus')),
+                            );
+                          } catch (e) {
+                            messenger.showSnackBar(
+                              SnackBar(content: Text('Gagal hapus: $e')),
+                            );
+                          }
+                        },
+                      );
+                    },
                   ),
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (err, stack) =>
@@ -402,20 +488,205 @@ class _MemberTab extends StatelessWidget {
       ],
     );
   }
+
+  void _showMemberTransactions(
+    BuildContext context,
+    GroupMemberSummary member,
+    List<SavingGroupEntry> allEntries,
+  ) {
+    final entries = allEntries
+        .where((e) => e.memberId == member.memberId)
+        .toList();
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) {
+        if (entries.isEmpty) {
+          return const Padding(
+            padding: EdgeInsets.all(16),
+            child: Text('Belum ada transaksi untuk anggota ini.'),
+          );
+        }
+        return ListView.builder(
+          padding: const EdgeInsets.all(12),
+          itemCount: entries.length,
+          itemBuilder: (ctx, index) {
+            final entry = entries[index];
+            final isDeposit = entry.type == SavingEntryType.deposit;
+            return ListTile(
+              leading: Icon(
+                isDeposit ? Icons.upload : Icons.download,
+                color: isDeposit ? Colors.green : Colors.red,
+              ),
+              title: Text(entry.amount.format()),
+              subtitle: Text(
+                DateFormat.yMMMd().format(entry.transactionDate) +
+                    (entry.note != null && entry.note!.isNotEmpty
+                        ? ' • ${entry.note}'
+                        : ''),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _showEditMemberSheet(
+    BuildContext context,
+    WidgetRef ref,
+    GroupMemberSummary member,
+  ) async {
+    final formKey = GlobalKey<FormState>();
+    final nameCtrl = TextEditingController(text: member.displayName);
+    final targetCtrl = TextEditingController(
+      text: member.targetAmount != null
+          ? NumberFormat.decimalPattern('id_ID')
+              .format(member.targetAmount!.cents ~/ 100)
+          : '',
+    );
+    String? avatarUrl = member.avatarUrl;
+    File? pickedImage;
+    final picker = ImagePicker();
+    final messenger = ScaffoldMessenger.of(context);
+    final storage = SupabaseStorageService(ref.read(supabaseClientProvider));
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) {
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(ctx).viewInsets.bottom,
+            left: 16,
+            right: 16,
+            top: 16,
+          ),
+          child: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade400,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () async {
+                    final file = await picker.pickImage(source: ImageSource.gallery);
+                    if (file != null) {
+                      pickedImage = File(file.path);
+                    }
+                  },
+                  child: CircleAvatar(
+                    radius: 28,
+                    backgroundImage: pickedImage != null
+                        ? FileImage(pickedImage!)
+                        : (avatarUrl != null
+                            ? NetworkImage(avatarUrl) as ImageProvider
+                            : null),
+                    child: avatarUrl == null && pickedImage == null
+                        ? const Icon(Icons.camera_alt)
+                        : null,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: nameCtrl,
+                  decoration: const InputDecoration(labelText: 'Nama'),
+                  validator: (val) => val == null || val.isEmpty ? 'Harus diisi' : null,
+                ),
+                TextFormField(
+                  controller: targetCtrl,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [MoneyInputFormatter()],
+                  decoration:
+                      const InputDecoration(labelText: 'Target nominal (opsional)'),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () async {
+                      if (!formKey.currentState!.validate()) return;
+                      try {
+                        String? uploadedAvatar = avatarUrl;
+                        if (pickedImage != null) {
+                          uploadedAvatar =
+                              await storage.uploadAvatar(pickedImage!);
+                        }
+                        await ref.read(groupSavingRepositoryProvider).updateMember(
+                              memberId: member.memberId,
+                              displayName: nameCtrl.text,
+                              targetAmount: targetCtrl.text.trim().isEmpty
+                                  ? null
+                                  : Money.fromFormatted(targetCtrl.text),
+                              avatarUrl: uploadedAvatar,
+                            );
+                        ref.invalidate(groupMemberSummariesProvider(groupId));
+                        ref.invalidate(groupSummariesProvider);
+                        if (context.mounted) Navigator.of(context).pop();
+                      } catch (e) {
+                        messenger.showSnackBar(
+                          SnackBar(content: Text('Gagal simpan: $e')),
+                        );
+                      }
+                    },
+                    icon: const Icon(Icons.save),
+                    label: const Text('Simpan'),
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
 }
 
 class _MemberTile extends StatelessWidget {
   final GroupMemberSummary summary;
-  const _MemberTile({required this.summary});
+  final VoidCallback onTap;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+  const _MemberTile({
+    required this.summary,
+    required this.onTap,
+    required this.onEdit,
+    required this.onDelete,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Card(
       child: ListTile(
+        onTap: onTap,
+        leading: summary.avatarUrl != null
+            ? CircleAvatar(backgroundImage: NetworkImage(summary.avatarUrl!))
+            : const CircleAvatar(child: Icon(Icons.person)),
         title: Text(summary.displayName),
         subtitle: Text(
           'Terkumpul: ${summary.totalContributed.format()}'
           '${summary.targetAmount != null ? ' / ${summary.targetAmount!.format()}' : ''}',
+        ),
+        trailing: Wrap(
+          spacing: 4,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.edit, size: 20),
+              onPressed: onEdit,
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete, size: 20),
+              onPressed: onDelete,
+            ),
+          ],
         ),
       ),
     );
@@ -461,6 +732,30 @@ class _TransactionsTab extends StatelessWidget {
   }
 }
 
+class _PresetRow extends StatelessWidget {
+  final void Function(int cents) onAdd;
+  final void Function(int cents) onSet;
+
+  const _PresetRow({required this.onAdd, required this.onSet});
+
+  @override
+  Widget build(BuildContext context) {
+    final presets = [500000, 1000000, 5000000, 10000000];
+    return Wrap(
+      spacing: 8,
+      children: presets
+          .map(
+            (c) => OutlinedButton(
+              onPressed: () => onAdd(c),
+              onLongPress: () => onSet(c),
+              child: Text('Rp ${NumberFormat.decimalPattern('id_ID').format(c ~/ 100)}'),
+            ),
+          )
+          .toList(),
+    );
+  }
+}
+
 class _EntryTile extends StatelessWidget {
   final SavingGroupEntry entry;
   final Map<String, String> memberMap;
@@ -475,7 +770,8 @@ class _EntryTile extends StatelessWidget {
     return Card(
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor: isDeposit ? Colors.green.shade100 : Colors.red.shade100,
+          backgroundColor:
+              isDeposit ? Colors.green.shade100 : Colors.red.shade100,
           child: Icon(
             isDeposit ? Icons.upload : Icons.download,
             color: isDeposit ? Colors.green : Colors.red,
@@ -486,8 +782,8 @@ class _EntryTile extends StatelessWidget {
           style: const TextStyle(fontWeight: FontWeight.w700),
         ),
         subtitle: Text(
-          '$memberName - ${DateFormat.yMMMd().format(entry.transactionDate)}'
-          '${entry.note != null && entry.note!.isNotEmpty ? ' - ${entry.note}' : ''}',
+          '$memberName • ${DateFormat.yMMMd().format(entry.transactionDate)}'
+          '${entry.note != null && entry.note!.isNotEmpty ? ' • ${entry.note}' : ''}',
         ),
         trailing: Text(
           isDeposit ? 'Setor' : 'Tarik',

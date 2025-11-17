@@ -22,7 +22,17 @@ abstract class GroupSavingRepository {
     required String groupId,
     required String displayName,
     Money? targetAmount,
+    String? avatarUrl,
   });
+
+  Future<SavingGroupMember> updateMember({
+    required String memberId,
+    String? displayName,
+    Money? targetAmount,
+    String? avatarUrl,
+  });
+
+  Future<void> deleteMember(String memberId);
 
   Future<List<SavingGroupEntry>> listEntries(String groupId);
 

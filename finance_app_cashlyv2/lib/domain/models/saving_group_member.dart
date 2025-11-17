@@ -5,6 +5,7 @@ class SavingGroupMember {
   final String groupId;
   final String displayName;
   final Money? targetAmount;
+  final String? avatarUrl;
   final DateTime createdAt;
 
   SavingGroupMember({
@@ -13,5 +14,6 @@ class SavingGroupMember {
     required this.displayName,
     required this.createdAt,
     this.targetAmount,
+    this.avatarUrl,
   });
 }

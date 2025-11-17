@@ -19,14 +19,20 @@ class SupabaseCashRepository implements CashRepository {
     required Money amount,
     required CashTransactionType type,
     String? categoryId,
+    String? categoryName,
     String? note,
     DateTime? now,
   }) async {
+    final resolvedCategoryId = categoryId ??
+        (categoryName != null && categoryName.isNotEmpty
+            ? await _resolveCategoryId(categoryName, type)
+            : null);
+
     final payload = {
       'transaction_date': DateOnly.toDateString(transactionDate),
       'amount_cents': amount.cents,
       'type': type.name,
-      'category_id': categoryId,
+      'category_id': resolvedCategoryId,
       'note': note,
       'created_at': (now ?? DateTime.now()).toIso8601String(),
     };
@@ -102,6 +108,33 @@ class SupabaseCashRepository implements CashRepository {
         totalExpense: Money(monthExpense),
       ),
     );
+  }
+
+  Future<String?> _resolveCategoryId(
+    String categoryName,
+    CashTransactionType type,
+  ) async {
+    final existing = await _client
+        .from('cash_categories')
+        .select()
+        .eq('name', categoryName)
+        .eq('type', type.name)
+        .limit(1) as List<dynamic>;
+
+    if (existing.isNotEmpty) {
+      return (existing.first as Map<String, dynamic>)['id'] as String?;
+    }
+
+    final inserted = await _client
+        .from('cash_categories')
+        .insert({
+          'name': categoryName,
+          'type': type.name,
+        })
+        .select()
+        .limit(1) as List<dynamic>;
+
+    return (inserted.first as Map<String, dynamic>)['id'] as String?;
   }
 
   CashTransaction _mapTransaction(Map<String, dynamic> row) {

@@ -66,11 +66,13 @@ class SupabaseGroupSavingRepository implements GroupSavingRepository {
     required String groupId,
     required String displayName,
     Money? targetAmount,
+    String? avatarUrl,
   }) async {
     final payload = {
       'group_id': groupId,
       'display_name': displayName,
       'target_amount_cents': targetAmount?.cents,
+      'avatar_url': avatarUrl,
     };
 
     final rows = await _client
@@ -80,6 +82,37 @@ class SupabaseGroupSavingRepository implements GroupSavingRepository {
         .limit(1) as List<dynamic>;
 
     return _mapMember(rows.first as Map<String, dynamic>);
+  }
+
+  @override
+  Future<SavingGroupMember> updateMember({
+    required String memberId,
+    String? displayName,
+    Money? targetAmount,
+    String? avatarUrl,
+  }) async {
+    final payload = <String, dynamic>{
+      if (displayName != null) 'display_name': displayName,
+      if (targetAmount != null) 'target_amount_cents': targetAmount.cents,
+      if (avatarUrl != null) 'avatar_url': avatarUrl,
+    };
+
+    final rows = await _client
+        .from('saving_group_members')
+        .update(payload)
+        .eq('id', memberId)
+        .select()
+        .limit(1) as List<dynamic>;
+
+    return _mapMember(rows.first as Map<String, dynamic>);
+  }
+
+  @override
+  Future<void> deleteMember(String memberId) async {
+    await _client
+        .from('saving_group_members')
+        .delete()
+        .eq('id', memberId);
   }
 
   @override
@@ -154,6 +187,7 @@ class SupabaseGroupSavingRepository implements GroupSavingRepository {
           ? Money(row['target_amount_cents'] as int)
           : null,
       totalContributed: Money(row['total_contributed_cents'] as int? ?? 0),
+      avatarUrl: row['avatar_url'] as String?,
     );
   }
 
@@ -165,6 +199,7 @@ class SupabaseGroupSavingRepository implements GroupSavingRepository {
       targetAmount: row['target_amount_cents'] != null
           ? Money(row['target_amount_cents'] as int)
           : null,
+      avatarUrl: row['avatar_url'] as String?,
       createdAt: DateTime.parse(row['created_at'] as String),
     );
   }

@@ -22,4 +22,10 @@ class Money {
   static Money fromDouble(double value) => Money((value * 100).round());
 
   static const Money zero = Money(0);
+
+  static Money fromFormatted(String input) {
+    final digits = input.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.isEmpty) return Money.zero;
+    return Money(int.parse(digits) * 100);
+  }
 }

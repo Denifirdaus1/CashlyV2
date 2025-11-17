@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../application/providers.dart';
+import '../../core/input_formatters/money_input_formatter.dart';
 import '../../core/money.dart';
 import '../../domain/enums.dart';
 import '../../domain/models/cash_rollup.dart';
@@ -79,6 +80,7 @@ class CashflowView extends ConsumerWidget {
     final formKey = GlobalKey<FormState>();
     final amountController = TextEditingController();
     final noteController = TextEditingController();
+    final categoryController = TextEditingController();
     DateTime selectedDate = DateTime.now();
     var selectedType = CashTransactionType.expense;
 
@@ -94,117 +96,144 @@ class CashflowView extends ConsumerWidget {
             right: 16,
             top: 16,
           ),
-          child: Form(
-            key: formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 40,
-                  height: 4,
-                  margin: const EdgeInsets.only(bottom: 12),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade400,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          child: StatefulBuilder(
+            builder: (context, setSheetState) {
+              return Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text('Tambah Transaksi',
-                        style: TextStyle(
-                            fontWeight: FontWeight.w600, fontSize: 16)),
-                    TextButton(
-                      onPressed: () async {
-                        final picked = await showDatePicker(
-                          context: ctx,
-                          initialDate: selectedDate,
-                          firstDate: DateTime(2020),
-                          lastDate: DateTime(2100),
-                        );
-                        if (picked != null) {
-                          selectedDate = picked;
-                        }
-                      },
-                      child: Text(DateFormat.yMMMd().format(selectedDate)),
+                    Container(
+                      width: 40,
+                      height: 4,
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade400,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
                     ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Tambah Transaksi',
+                            style: TextStyle(
+                                fontWeight: FontWeight.w600, fontSize: 16)),
+                        TextButton(
+                          onPressed: () async {
+                            final picked = await showDatePicker(
+                              context: ctx,
+                              initialDate: selectedDate,
+                              firstDate: DateTime(2020),
+                              lastDate: DateTime(2100),
+                            );
+                            if (picked != null) {
+                              setSheetState(() => selectedDate = picked);
+                            }
+                          },
+                          child: Text(DateFormat.yMMMd().format(selectedDate)),
+                        ),
+                      ],
+                    ),
+                    Row(
+                      children: [
+                        const Text('Jenis: '),
+                        SegmentedButton<CashTransactionType>(
+                          segments: const [
+                            ButtonSegment(
+                              value: CashTransactionType.expense,
+                              label: Text('Pengeluaran'),
+                            ),
+                            ButtonSegment(
+                              value: CashTransactionType.income,
+                              label: Text('Pemasukan'),
+                            ),
+                          ],
+                          selected: {selectedType},
+                          onSelectionChanged: (val) =>
+                              setSheetState(() => selectedType = val.first),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: categoryController,
+                      decoration:
+                          const InputDecoration(labelText: 'Kategori (mis. Belanja)'),
+                    ),
+                    TextFormField(
+                      controller: amountController,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [MoneyInputFormatter()],
+                      decoration: const InputDecoration(labelText: 'Nominal'),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Harus diisi';
+                        }
+                        final digits =
+                            value.replaceAll(RegExp(r'[^0-9]'), '');
+                        if (digits.isEmpty) return 'Nominal tidak valid';
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    _PresetRow(
+                      onAdd: (increment) {
+                        final current = Money.fromFormatted(amountController.text);
+                        final updated = Money(current.cents + increment);
+                        amountController.text =
+                            NumberFormat.decimalPattern('id_ID').format(updated.cents ~/ 100);
+                      },
+                      onSet: (value) {
+                        amountController.text =
+                            NumberFormat.decimalPattern('id_ID').format(value ~/ 100);
+                      },
+                    ),
+                    TextFormField(
+                      controller: noteController,
+                      decoration: const InputDecoration(labelText: 'Catatan (opsional)'),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: () async {
+                          if (!formKey.currentState!.validate()) return;
+                          final amount = Money.fromFormatted(amountController.text);
+                          try {
+                            await ref.read(cashRepositoryProvider).addTransaction(
+                                  transactionDate: selectedDate,
+                                  amount: amount,
+                                  type: selectedType,
+                                  categoryName: categoryController.text,
+                                  note: noteController.text.isEmpty
+                                      ? null
+                                      : noteController.text,
+                                );
+                            ref.invalidate(cashRollupProvider);
+                            ref.invalidate(cashTransactionsProvider);
+                            if (context.mounted) {
+                              Navigator.of(context).pop();
+                              messenger.showSnackBar(
+                                const SnackBar(
+                                  content: Text('Transaksi cashflow tersimpan'),
+                                ),
+                              );
+                            }
+                          } catch (e) {
+                            messenger.showSnackBar(
+                              SnackBar(content: Text('Gagal simpan: $e')),
+                            );
+                          }
+                        },
+                        icon: const Icon(Icons.save),
+                        label: const Text('Simpan'),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
                   ],
                 ),
-                DropdownButtonFormField<CashTransactionType>(
-                  initialValue: selectedType,
-                  items: CashTransactionType.values
-                      .map(
-                        (t) => DropdownMenuItem(
-                          value: t,
-                          child: Text(
-                            t == CashTransactionType.income ? 'Pemasukan' : 'Pengeluaran',
-                          ),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (val) => selectedType = val ?? selectedType,
-                  decoration: const InputDecoration(labelText: 'Jenis'),
-                ),
-                TextFormField(
-                  controller: amountController,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(labelText: 'Nominal'),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Harus diisi';
-                    }
-                    final parsed = double.tryParse(value.replaceAll(',', ''));
-                    if (parsed == null) return 'Nominal tidak valid';
-                    if (parsed < 0) return 'Tidak boleh negatif';
-                    return null;
-                  },
-                ),
-                TextFormField(
-                  controller: noteController,
-                  decoration: const InputDecoration(labelText: 'Catatan (opsional)'),
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: () async {
-                      if (!formKey.currentState!.validate()) return;
-                      final amount = double.parse(
-                        amountController.text.replaceAll(',', ''),
-                      );
-                      try {
-                        await ref.read(cashRepositoryProvider).addTransaction(
-                              transactionDate: selectedDate,
-                              amount: Money.fromDouble(amount),
-                              type: selectedType,
-                              note: noteController.text.isEmpty
-                                  ? null
-                                  : noteController.text,
-                            );
-                        ref.invalidate(cashRollupProvider);
-                        ref.invalidate(cashTransactionsProvider);
-                        if (context.mounted) {
-                          Navigator.of(context).pop();
-                          messenger.showSnackBar(
-                            const SnackBar(
-                              content: Text('Transaksi cashflow tersimpan'),
-                            ),
-                          );
-                        }
-                      } catch (e) {
-                        messenger.showSnackBar(
-                          SnackBar(content: Text('Gagal simpan: $e')),
-                        );
-                      }
-                    },
-                    icon: const Icon(Icons.save),
-                    label: const Text('Simpan'),
-                  ),
-                ),
-                const SizedBox(height: 12),
-              ],
-            ),
+              );
+            },
           ),
         );
       },
@@ -358,6 +387,33 @@ class _ErrorText extends StatelessWidget {
         message,
         style: const TextStyle(color: Colors.red),
       ),
+    );
+  }
+}
+
+class _PresetRow extends StatelessWidget {
+  final void Function(int cents) onAdd;
+  final void Function(int cents) onSet;
+
+  const _PresetRow({
+    required this.onAdd,
+    required this.onSet,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final presets = [500000, 1000000, 5000000, 10000000]; // in cents
+    return Wrap(
+      spacing: 8,
+      children: presets
+          .map(
+            (c) => OutlinedButton(
+              onPressed: () => onAdd(c),
+              onLongPress: () => onSet(c),
+              child: Text('Rp ${NumberFormat.decimalPattern('id_ID').format(c ~/ 100)}'),
+            ),
+          )
+          .toList(),
     );
   }
 }

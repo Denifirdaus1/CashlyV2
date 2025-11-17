@@ -13,6 +13,7 @@ abstract class CashRepository {
     required Money amount,
     required CashTransactionType type,
     String? categoryId,
+    String? categoryName,
     String? note,
     DateTime? now,
   });

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../application/providers.dart';
+import '../../core/input_formatters/money_input_formatter.dart';
 import '../../core/money.dart';
 import '../../domain/models/group_summary.dart';
 import 'group_savings_view_detail.dart';
@@ -113,7 +114,7 @@ class GroupSavingsView extends ConsumerWidget {
                 ),
                 TextFormField(
                   controller: nameCtrl,
-                  decoration: const InputDecoration(labelText: 'Nama kelompok'),
+                  decoration: const InputDecoration(labelText: 'Tujuan menabung'),
                   validator: (val) => val == null || val.isEmpty ? 'Harus diisi' : null,
                 ),
                 TextFormField(
@@ -123,15 +124,28 @@ class GroupSavingsView extends ConsumerWidget {
                 ),
                 TextFormField(
                   controller: targetCtrl,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [MoneyInputFormatter()],
                   decoration:
                       const InputDecoration(labelText: 'Target total nominal'),
                   validator: (val) {
                     if (val == null || val.isEmpty) return 'Harus diisi';
-                    final parsed = double.tryParse(val.replaceAll(',', ''));
-                    if (parsed == null) return 'Nominal tidak valid';
+                    final digits = val.replaceAll(RegExp(r'[^0-9]'), '');
+                    if (digits.isEmpty) return 'Nominal tidak valid';
                     return null;
+                  },
+                ),
+                const SizedBox(height: 8),
+                _PresetRow(
+                  onAdd: (inc) {
+                    final current = Money.fromFormatted(targetCtrl.text);
+                    final updated = Money(current.cents + inc);
+                    targetCtrl.text =
+                        NumberFormat.decimalPattern('id_ID').format(updated.cents ~/ 100);
+                  },
+                  onSet: (val) {
+                    targetCtrl.text =
+                        NumberFormat.decimalPattern('id_ID').format(val ~/ 100);
                   },
                 ),
                 const SizedBox(height: 12),
@@ -140,13 +154,13 @@ class GroupSavingsView extends ConsumerWidget {
                   child: ElevatedButton.icon(
                     onPressed: () async {
                       if (!formKey.currentState!.validate()) return;
-                      final target = double.parse(targetCtrl.text.replaceAll(',', ''));
+                      final target = Money.fromFormatted(targetCtrl.text);
                       try {
                         await ref.read(groupSavingRepositoryProvider).createGroup(
                               name: nameCtrl.text,
                               description:
                                   descCtrl.text.isEmpty ? null : descCtrl.text,
-                              targetTotal: Money.fromDouble(target),
+                              targetTotal: target,
                               deadline: deadline,
                             );
                         ref.invalidate(groupSummariesProvider);
@@ -207,6 +221,30 @@ class _GroupTile extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _PresetRow extends StatelessWidget {
+  final void Function(int cents) onAdd;
+  final void Function(int cents) onSet;
+
+  const _PresetRow({required this.onAdd, required this.onSet});
+
+  @override
+  Widget build(BuildContext context) {
+    final presets = [500000, 1000000, 5000000, 10000000];
+    return Wrap(
+      spacing: 8,
+      children: presets
+          .map(
+            (c) => OutlinedButton(
+              onPressed: () => onAdd(c),
+              onLongPress: () => onSet(c),
+              child: Text('Rp ${NumberFormat.decimalPattern('id_ID').format(c ~/ 100)}'),
+            ),
+          )
+          .toList(),
     );
   }
 }

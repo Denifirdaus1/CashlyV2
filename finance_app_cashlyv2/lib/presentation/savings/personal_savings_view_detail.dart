@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../application/providers.dart';
+import '../../core/input_formatters/money_input_formatter.dart';
 import '../../core/money.dart';
 import '../../domain/enums.dart';
 import '../../domain/models/personal_goal_summary.dart';
@@ -140,14 +141,26 @@ class PersonalGoalDetailPage extends ConsumerWidget {
                 ),
                 TextFormField(
                   controller: amountCtrl,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [MoneyInputFormatter()],
                   decoration: const InputDecoration(labelText: 'Nominal'),
                   validator: (val) {
                     if (val == null || val.isEmpty) return 'Harus diisi';
-                    return double.tryParse(val.replaceAll(',', '')) == null
-                        ? 'Nominal tidak valid'
-                        : null;
+                    final digits = val.replaceAll(RegExp(r'[^0-9]'), '');
+                    return digits.isEmpty ? 'Nominal tidak valid' : null;
+                  },
+                ),
+                const SizedBox(height: 8),
+                _PresetRow(
+                  onAdd: (inc) {
+                    final current = Money.fromFormatted(amountCtrl.text);
+                    final updated = Money(current.cents + inc);
+                    amountCtrl.text =
+                        NumberFormat.decimalPattern('id_ID').format(updated.cents ~/ 100);
+                  },
+                  onSet: (val) {
+                    amountCtrl.text =
+                        NumberFormat.decimalPattern('id_ID').format(val ~/ 100);
                   },
                 ),
                 TextFormField(
@@ -160,10 +173,10 @@ class PersonalGoalDetailPage extends ConsumerWidget {
                   child: ElevatedButton.icon(
                     onPressed: () async {
                       if (!formKey.currentState!.validate()) return;
-                      final amount = double.parse(amountCtrl.text.replaceAll(',', ''));
+                      final amount = Money.fromFormatted(amountCtrl.text);
                       final current = summary?.currentAmount.cents ?? 0;
                       if (selectedType == SavingEntryType.withdraw &&
-                          Money.fromDouble(amount).cents > current) {
+                          amount.cents > current) {
                         messenger.showSnackBar(
                           const SnackBar(
                             content: Text('Nominal tarik melebihi saldo tujuan'),
@@ -176,7 +189,7 @@ class PersonalGoalDetailPage extends ConsumerWidget {
                         await ref.read(personalSavingRepositoryProvider).addEntry(
                               goalId: goalId,
                               transactionDate: selectedDate,
-                              amount: Money.fromDouble(amount),
+                              amount: amount,
                               type: selectedType,
                               note: noteCtrl.text.isEmpty ? null : noteCtrl.text,
                             );
@@ -268,6 +281,30 @@ class _EntryTile extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _PresetRow extends StatelessWidget {
+  final void Function(int cents) onAdd;
+  final void Function(int cents) onSet;
+
+  const _PresetRow({required this.onAdd, required this.onSet});
+
+  @override
+  Widget build(BuildContext context) {
+    final presets = [500000, 1000000, 5000000, 10000000];
+    return Wrap(
+      spacing: 8,
+      children: presets
+          .map(
+            (c) => OutlinedButton(
+              onPressed: () => onAdd(c),
+              onLongPress: () => onSet(c),
+              child: Text('Rp ${NumberFormat.decimalPattern('id_ID').format(c ~/ 100)}'),
+            ),
+          )
+          .toList(),
     );
   }
 }

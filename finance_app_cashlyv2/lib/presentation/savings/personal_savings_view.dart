@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../application/providers.dart';
+import '../../core/input_formatters/money_input_formatter.dart';
 import '../../core/money.dart';
 import '../../domain/models/personal_goal_summary.dart';
 import 'personal_savings_view_detail.dart';
@@ -123,14 +124,27 @@ class PersonalSavingsView extends ConsumerWidget {
                 ),
                 TextFormField(
                   controller: targetCtrl,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [MoneyInputFormatter()],
                   decoration: const InputDecoration(labelText: 'Target nominal'),
                   validator: (val) {
                     if (val == null || val.isEmpty) return 'Harus diisi';
-                    final parsed = double.tryParse(val.replaceAll(',', ''));
-                    if (parsed == null) return 'Nominal tidak valid';
+                    final digits = val.replaceAll(RegExp(r'[^0-9]'), '');
+                    if (digits.isEmpty) return 'Nominal tidak valid';
                     return null;
+                  },
+                ),
+                const SizedBox(height: 8),
+                _PresetRow(
+                  onAdd: (increment) {
+                    final current = Money.fromFormatted(targetCtrl.text);
+                    final updated = Money(current.cents + increment);
+                    targetCtrl.text =
+                        NumberFormat.decimalPattern('id_ID').format(updated.cents ~/ 100);
+                  },
+                  onSet: (value) {
+                    targetCtrl.text =
+                        NumberFormat.decimalPattern('id_ID').format(value ~/ 100);
                   },
                 ),
                 const SizedBox(height: 12),
@@ -139,7 +153,7 @@ class PersonalSavingsView extends ConsumerWidget {
                   child: ElevatedButton.icon(
                     onPressed: () async {
                       if (!formKey.currentState!.validate()) return;
-                      final target = double.parse(targetCtrl.text.replaceAll(',', ''));
+                      final target = Money.fromFormatted(targetCtrl.text);
                       try {
                         await ref
                             .read(personalSavingRepositoryProvider)
@@ -147,7 +161,7 @@ class PersonalSavingsView extends ConsumerWidget {
                               name: nameCtrl.text,
                               description:
                                   descCtrl.text.isEmpty ? null : descCtrl.text,
-                              targetAmount: Money.fromDouble(target),
+                              targetAmount: target,
                               deadline: deadline,
                             );
                         ref.invalidate(personalGoalsProvider);
@@ -207,6 +221,30 @@ class _GoalTile extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _PresetRow extends StatelessWidget {
+  final void Function(int cents) onAdd;
+  final void Function(int cents) onSet;
+
+  const _PresetRow({required this.onAdd, required this.onSet});
+
+  @override
+  Widget build(BuildContext context) {
+    final presets = [500000, 1000000, 5000000, 10000000]; // cents
+    return Wrap(
+      spacing: 8,
+      children: presets
+          .map(
+            (c) => OutlinedButton(
+              onPressed: () => onAdd(c),
+              onLongPress: () => onSet(c),
+              child: Text('Rp ${NumberFormat.decimalPattern('id_ID').format(c ~/ 100)}'),
+            ),
+          )
+          .toList(),
     );
   }
 }

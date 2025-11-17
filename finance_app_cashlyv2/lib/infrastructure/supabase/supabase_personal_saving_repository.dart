@@ -37,6 +37,40 @@ class SupabasePersonalSavingRepository implements PersonalSavingRepository {
   }
 
   @override
+  Future<SavingPersonalGoal> updateGoal({
+    required String goalId,
+    String? name,
+    String? description,
+    Money? targetAmount,
+    DateTime? deadline,
+  }) async {
+    final payload = <String, dynamic>{
+      if (name != null) 'name': name,
+      if (description != null) 'description': description,
+      if (targetAmount != null) 'target_amount_cents': targetAmount.cents,
+      if (deadline != null) 'deadline': DateOnly.toDateString(deadline),
+      'updated_at': DateTime.now().toIso8601String(),
+    };
+
+    final rows = await _client
+        .from('saving_personal_goals')
+        .update(payload)
+        .eq('id', goalId)
+        .select()
+        .limit(1) as List<dynamic>;
+
+    return _mapGoal(rows.first as Map<String, dynamic>);
+  }
+
+  @override
+  Future<void> deleteGoal(String goalId) async {
+    await _client
+        .from('saving_personal_goals')
+        .update({'deleted_at': DateTime.now().toIso8601String()})
+        .eq('id', goalId);
+  }
+
+  @override
   Future<List<PersonalGoalSummary>> listGoalSummaries() async {
     final rows = await _client
         .from('vw_saving_personal_goal_summary')

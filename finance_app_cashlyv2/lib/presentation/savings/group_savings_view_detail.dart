@@ -17,11 +17,13 @@ import '../../infrastructure/supabase/supabase_storage_service.dart';
 class GroupDetailPage extends ConsumerWidget {
   final String groupId;
   final String name;
+  final String? avatarUrl;
 
   const GroupDetailPage({
     super.key,
     required this.groupId,
     required this.name,
+    this.avatarUrl,
   });
 
   @override
@@ -46,7 +48,20 @@ class GroupDetailPage extends ConsumerWidget {
       length: 3,
       child: Scaffold(
         appBar: AppBar(
-          title: Text(name),
+          title: Row(
+            children: [
+              CircleAvatar(
+                backgroundColor: const Color(0xFF68CEC3).withValues(alpha: 0.15),
+                backgroundImage:
+                    avatarUrl != null ? NetworkImage(avatarUrl!) : null,
+                child: avatarUrl == null
+                    ? const Icon(Icons.groups, color: Color(0xFF68CEC3))
+                    : null,
+              ),
+              const SizedBox(width: 10),
+              Text(name),
+            ],
+          ),
           bottom: const TabBar(
             tabs: [
               Tab(text: 'Ringkasan'),
@@ -54,6 +69,12 @@ class GroupDetailPage extends ConsumerWidget {
               Tab(text: 'Transaksi'),
             ],
           ),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.edit),
+              onPressed: () => _showEditGroup(context, ref, summary),
+            ),
+          ],
         ),
         body: TabBarView(
           children: [
@@ -136,6 +157,7 @@ class GroupDetailPage extends ConsumerWidget {
                   decoration: const InputDecoration(labelText: 'Nama'),
                   validator: (val) => val == null || val.isEmpty ? 'Harus diisi' : null,
                 ),
+                const SizedBox(height: 8),
                 TextFormField(
                   controller: targetCtrl,
                   keyboardType: TextInputType.number,
@@ -164,9 +186,9 @@ class GroupDetailPage extends ConsumerWidget {
                       if (!formKey.currentState!.validate()) return;
                       final targetRaw = targetCtrl.text.trim();
                       try {
-                        String? avatarUrl;
+                        String? avatar;
                         if (pickedImage != null) {
-                          avatarUrl = await storage.uploadAvatar(pickedImage!);
+                          avatar = await storage.uploadAvatar(pickedImage!);
                         }
                         await ref.read(groupSavingRepositoryProvider).addMember(
                               groupId: groupId,
@@ -174,7 +196,7 @@ class GroupDetailPage extends ConsumerWidget {
                               targetAmount: targetRaw.isEmpty
                                   ? null
                                   : Money.fromFormatted(targetRaw),
-                              avatarUrl: avatarUrl,
+                              avatarUrl: avatar,
                             );
                         ref.invalidate(groupMemberSummariesProvider(groupId));
                         ref.invalidate(groupSummariesProvider);
@@ -281,6 +303,7 @@ class GroupDetailPage extends ConsumerWidget {
                       .toList(),
                   onChanged: (val) => selectedType = val ?? selectedType,
                 ),
+                const SizedBox(height: 8),
                 TextFormField(
                   controller: amountCtrl,
                   keyboardType: TextInputType.number,
@@ -368,6 +391,128 @@ class GroupDetailPage extends ConsumerWidget {
       },
     );
   }
+
+  Future<void> _showEditGroup(
+    BuildContext context,
+    WidgetRef ref,
+    GroupSummary? summary,
+  ) async {
+    final formKey = GlobalKey<FormState>();
+    final nameCtrl = TextEditingController(text: name);
+    final descCtrl = TextEditingController();
+    final targetCtrl = TextEditingController(
+      text: summary != null
+          ? NumberFormat.decimalPattern('id_ID')
+              .format(summary.targetTotal.cents ~/ 100)
+          : '',
+    );
+    File? pickedImage;
+    final picker = ImagePicker();
+    final storage = SupabaseStorageService(ref.read(supabaseClientProvider));
+    String? avatar = avatarUrl;
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) {
+        final messenger = ScaffoldMessenger.of(ctx);
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(ctx).viewInsets.bottom,
+            left: 16,
+            right: 16,
+            top: 16,
+          ),
+          child: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade400,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () async {
+                    final file = await picker.pickImage(source: ImageSource.gallery);
+                    if (file != null) pickedImage = File(file.path);
+                  },
+                  child: CircleAvatar(
+                    radius: 28,
+                    backgroundImage: pickedImage != null
+                        ? FileImage(pickedImage!)
+                        : (avatar != null ? NetworkImage(avatar) : null),
+                    child: pickedImage == null && avatar == null
+                        ? const Icon(Icons.camera_alt)
+                        : null,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: nameCtrl,
+                  decoration: const InputDecoration(labelText: 'Tujuan menabung'),
+                  validator: (val) => val == null || val.isEmpty ? 'Harus diisi' : null,
+                ),
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: descCtrl,
+                  decoration: const InputDecoration(labelText: 'Deskripsi (opsional)'),
+                ),
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: targetCtrl,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [MoneyInputFormatter()],
+                  decoration: const InputDecoration(labelText: 'Target total nominal'),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () async {
+                      if (!formKey.currentState!.validate()) return;
+                      try {
+                        String? uploadedAvatar = avatar;
+                        if (pickedImage != null) {
+                          uploadedAvatar =
+                              await storage.uploadAvatar(pickedImage!);
+                        }
+                        await ref.read(groupSavingRepositoryProvider).updateGroup(
+                              groupId: groupId,
+                              name: nameCtrl.text,
+                              description:
+                                  descCtrl.text.isNotEmpty ? descCtrl.text : null,
+                              targetTotal: targetCtrl.text.isEmpty
+                                  ? null
+                                  : Money.fromFormatted(targetCtrl.text),
+                              avatarUrl: uploadedAvatar,
+                            );
+                        ref.invalidate(groupSummariesProvider);
+                        ref.invalidate(groupMemberSummariesProvider(groupId));
+                        if (context.mounted) Navigator.of(context).pop();
+                      } catch (e) {
+                        messenger.showSnackBar(
+                          SnackBar(content: Text('Gagal simpan: $e')),
+                        );
+                      }
+                    },
+                    icon: const Icon(Icons.save),
+                    label: const Text('Simpan'),
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
 }
 
 class _SummaryTab extends StatelessWidget {
@@ -376,10 +521,7 @@ class _SummaryTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (summary == null) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
+    if (summary == null) return const Center(child: CircularProgressIndicator());
     return ListView(
       padding: const EdgeInsets.all(12),
       children: [
@@ -414,6 +556,7 @@ class _MemberTab extends ConsumerWidget {
   final AsyncValue<List<SavingGroupEntry>> entries;
   final String groupId;
   final VoidCallback onAddMember;
+
   const _MemberTab({
     required this.members,
     required this.entries,
@@ -494,13 +637,12 @@ class _MemberTab extends ConsumerWidget {
     GroupMemberSummary member,
     List<SavingGroupEntry> allEntries,
   ) {
-    final entries = allEntries
-        .where((e) => e.memberId == member.memberId)
-        .toList();
+    final memberEntries =
+        allEntries.where((e) => e.memberId == member.memberId).toList();
     showModalBottomSheet(
       context: context,
       builder: (ctx) {
-        if (entries.isEmpty) {
+        if (memberEntries.isEmpty) {
           return const Padding(
             padding: EdgeInsets.all(16),
             child: Text('Belum ada transaksi untuk anggota ini.'),
@@ -508,9 +650,9 @@ class _MemberTab extends ConsumerWidget {
         }
         return ListView.builder(
           padding: const EdgeInsets.all(12),
-          itemCount: entries.length,
+          itemCount: memberEntries.length,
           itemBuilder: (ctx, index) {
-            final entry = entries[index];
+            final entry = memberEntries[index];
             final isDeposit = entry.type == SavingEntryType.deposit;
             return ListTile(
               leading: Icon(
@@ -547,8 +689,8 @@ class _MemberTab extends ConsumerWidget {
     String? avatarUrl = member.avatarUrl;
     File? pickedImage;
     final picker = ImagePicker();
-    final messenger = ScaffoldMessenger.of(context);
     final storage = SupabaseStorageService(ref.read(supabaseClientProvider));
+    final messenger = ScaffoldMessenger.of(context);
 
     await showModalBottomSheet(
       context: context,
@@ -586,9 +728,7 @@ class _MemberTab extends ConsumerWidget {
                     radius: 28,
                     backgroundImage: pickedImage != null
                         ? FileImage(pickedImage!)
-                        : (avatarUrl != null
-                            ? NetworkImage(avatarUrl) as ImageProvider
-                            : null),
+                        : (avatarUrl != null ? NetworkImage(avatarUrl) : null),
                     child: avatarUrl == null && pickedImage == null
                         ? const Icon(Icons.camera_alt)
                         : null,
@@ -600,6 +740,7 @@ class _MemberTab extends ConsumerWidget {
                   decoration: const InputDecoration(labelText: 'Nama'),
                   validator: (val) => val == null || val.isEmpty ? 'Harus diisi' : null,
                 ),
+                const SizedBox(height: 8),
                 TextFormField(
                   controller: targetCtrl,
                   keyboardType: TextInputType.number,
@@ -655,6 +796,7 @@ class _MemberTile extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
+
   const _MemberTile({
     required this.summary,
     required this.onTap,

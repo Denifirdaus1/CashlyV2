@@ -24,13 +24,49 @@ class PersonalGoalDetailPage extends ConsumerWidget {
     final entries = ref.watch(personalGoalEntriesProvider(goalId));
     final allGoals = ref.watch(personalGoalsProvider);
     final summary = allGoals.maybeWhen(
-      data: (list) =>
-          list.firstWhere((g) => g.goalId == goalId, orElse: () => PersonalGoalSummary(goalId: goalId, name: name, targetAmount: Money.zero, currentAmount: Money.zero)),
+      data: (list) => list.firstWhere(
+        (g) => g.goalId == goalId,
+        orElse: () => PersonalGoalSummary(
+          goalId: goalId,
+          name: name,
+          targetAmount: Money.zero,
+          currentAmount: Money.zero,
+        ),
+      ),
       orElse: () => null,
     );
 
     return Scaffold(
-      appBar: AppBar(title: Text(name)),
+      appBar: AppBar(
+        title: Text(name),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.edit),
+            onPressed: () => _showEditGoalSheet(context, ref, summary),
+          ),
+          IconButton(
+            icon: const Icon(Icons.delete),
+            onPressed: () async {
+              final confirm = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('Hapus tujuan?'),
+                  content: const Text('Tindakan ini akan menghapus tujuan dan transaksinya.'),
+                  actions: [
+                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Batal')),
+                    TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Hapus')),
+                  ],
+                ),
+              );
+              if (confirm == true) {
+                await ref.read(personalSavingRepositoryProvider).deleteGoal(goalId);
+                ref.invalidate(personalGoalsProvider);
+                if (context.mounted) Navigator.of(context).pop();
+              }
+            },
+          ),
+        ],
+      ),
       body: Container(
         color: const Color(0xFFEFF7F6),
         child: RefreshIndicator(
@@ -51,16 +87,15 @@ class PersonalGoalDetailPage extends ConsumerWidget {
                         child: Center(child: Text('Belum ada transaksi tabungan.')),
                       )
                     : Column(
-                        children: items
-                            .map((e) => _EntryTile(entry: e))
-                            .toList(),
+                        children:
+                            items.map((e) => _EntryTile(entry: e)).toList(),
                       ),
                 loading: () => const Center(child: CircularProgressIndicator()),
-                error: (err, stack) =>
-                    Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Text(err.toString(), style: const TextStyle(color: Colors.red)),
-                    ),
+                error: (err, stack) => Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Text(err.toString(),
+                      style: const TextStyle(color: Colors.red)),
+                ),
               ),
             ],
           ),
@@ -84,12 +119,12 @@ class PersonalGoalDetailPage extends ConsumerWidget {
     final noteCtrl = TextEditingController();
     DateTime selectedDate = DateTime.now();
     var selectedType = SavingEntryType.deposit;
+    final messenger = ScaffoldMessenger.of(context);
 
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       builder: (ctx) {
-        final messenger = ScaffoldMessenger.of(ctx);
         return Padding(
           padding: EdgeInsets.only(
             bottom: MediaQuery.of(ctx).viewInsets.bottom,
@@ -142,6 +177,7 @@ class PersonalGoalDetailPage extends ConsumerWidget {
                       .toList(),
                   onChanged: (val) => selectedType = val ?? selectedType,
                 ),
+                const SizedBox(height: 8),
                 TextFormField(
                   controller: amountCtrl,
                   keyboardType: TextInputType.number,
@@ -204,6 +240,128 @@ class PersonalGoalDetailPage extends ConsumerWidget {
                             const SnackBar(content: Text('Transaksi tabungan tersimpan')),
                           );
                         }
+                      } catch (e) {
+                        messenger.showSnackBar(
+                          SnackBar(content: Text('Gagal simpan: $e')),
+                        );
+                      }
+                    },
+                    icon: const Icon(Icons.save),
+                    label: const Text('Simpan'),
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _showEditGoalSheet(
+    BuildContext context,
+    WidgetRef ref,
+    PersonalGoalSummary? summary,
+  ) async {
+    final formKey = GlobalKey<FormState>();
+    final nameCtrl = TextEditingController(text: name);
+    final descCtrl = TextEditingController();
+    final targetCtrl = TextEditingController(
+      text: summary != null
+          ? NumberFormat.decimalPattern('id_ID')
+              .format(summary.targetAmount.cents ~/ 100)
+          : '',
+    );
+    DateTime? deadline;
+    final messenger = ScaffoldMessenger.of(context);
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) {
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(ctx).viewInsets.bottom,
+            left: 16,
+            right: 16,
+            top: 16,
+          ),
+          child: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade400,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Edit Tujuan',
+                        style: TextStyle(fontWeight: FontWeight.w600)),
+                    TextButton(
+                      onPressed: () async {
+                        final picked = await showDatePicker(
+                          context: ctx,
+                          initialDate: DateTime.now(),
+                          firstDate: DateTime(2020),
+                          lastDate: DateTime(2100),
+                        );
+                        if (picked != null) deadline = picked;
+                      },
+                      child: Text(
+                          deadline != null ? DateFormat.yMMMd().format(deadline!) : 'Deadline?'),
+                    ),
+                  ],
+                ),
+                TextFormField(
+                  controller: nameCtrl,
+                  decoration: const InputDecoration(labelText: 'Nama tujuan'),
+                  validator: (val) => val == null || val.isEmpty ? 'Harus diisi' : null,
+                ),
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: descCtrl,
+                  decoration: const InputDecoration(labelText: 'Deskripsi (opsional)'),
+                ),
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: targetCtrl,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [MoneyInputFormatter()],
+                  decoration: const InputDecoration(labelText: 'Target nominal'),
+                  validator: (val) {
+                    if (val == null || val.isEmpty) return 'Harus diisi';
+                    final digits = val.replaceAll(RegExp(r'[^0-9]'), '');
+                    if (digits.isEmpty) return 'Nominal tidak valid';
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () async {
+                      if (!formKey.currentState!.validate()) return;
+                      try {
+                        await ref.read(personalSavingRepositoryProvider).updateGoal(
+                              goalId: goalId,
+                              name: nameCtrl.text,
+                              description:
+                                  descCtrl.text.isEmpty ? null : descCtrl.text,
+                              targetAmount: Money.fromFormatted(targetCtrl.text),
+                              deadline: deadline,
+                            );
+                        ref.invalidate(personalGoalsProvider);
+                        ref.invalidate(personalGoalEntriesProvider(goalId));
+                        if (context.mounted) Navigator.of(context).pop();
                       } catch (e) {
                         messenger.showSnackBar(
                           SnackBar(content: Text('Gagal simpan: $e')),

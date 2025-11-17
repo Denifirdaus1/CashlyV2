@@ -125,6 +125,7 @@ class GroupSavingsView extends ConsumerWidget {
                   decoration:
                       const InputDecoration(labelText: 'Deskripsi (opsional)'),
                 ),
+                const SizedBox(height: 8),
                 TextFormField(
                   controller: targetCtrl,
                   keyboardType: TextInputType.number,

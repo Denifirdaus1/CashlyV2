@@ -21,17 +21,47 @@ class SupabaseGroupSavingRepository implements GroupSavingRepository {
     String? description,
     required Money targetTotal,
     DateTime? deadline,
+    String? avatarUrl,
   }) async {
     final payload = {
       'name': name,
       'description': description,
       'target_total_cents': targetTotal.cents,
       'deadline': deadline != null ? DateOnly.toDateString(deadline) : null,
+      'avatar_url': avatarUrl,
     };
 
     final rows = await _client
         .from('saving_groups')
         .insert(payload)
+        .select()
+        .limit(1) as List<dynamic>;
+
+    return _mapGroup(rows.first as Map<String, dynamic>);
+  }
+
+  @override
+  Future<SavingGroup> updateGroup({
+    required String groupId,
+    String? name,
+    String? description,
+    Money? targetTotal,
+    DateTime? deadline,
+    String? avatarUrl,
+  }) async {
+    final payload = <String, dynamic>{
+      if (name != null) 'name': name,
+      if (description != null) 'description': description,
+      if (targetTotal != null) 'target_total_cents': targetTotal.cents,
+      if (deadline != null) 'deadline': DateOnly.toDateString(deadline),
+      if (avatarUrl != null) 'avatar_url': avatarUrl,
+      'updated_at': DateTime.now().toIso8601String(),
+    };
+
+    final rows = await _client
+        .from('saving_groups')
+        .update(payload)
+        .eq('id', groupId)
         .select()
         .limit(1) as List<dynamic>;
 

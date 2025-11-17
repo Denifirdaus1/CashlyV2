@@ -14,6 +14,16 @@ abstract class PersonalSavingRepository {
     DateTime? deadline,
   });
 
+  Future<SavingPersonalGoal> updateGoal({
+    required String goalId,
+    String? name,
+    String? description,
+    Money? targetAmount,
+    DateTime? deadline,
+  });
+
+  Future<void> deleteGoal(String goalId);
+
   Future<List<SavingPersonalEntry>> listEntries(String goalId);
 
   Future<SavingPersonalEntry> addEntry({

@@ -156,16 +156,17 @@ class CashflowView extends ConsumerWidget {
                       ],
                     ),
                     const SizedBox(height: 8),
-                    TextFormField(
-                      controller: categoryController,
-                      decoration:
-                          const InputDecoration(labelText: 'Kategori (mis. Belanja)'),
-                    ),
-                    TextFormField(
-                      controller: amountController,
-                      keyboardType: TextInputType.number,
-                      inputFormatters: [MoneyInputFormatter()],
-                      decoration: const InputDecoration(labelText: 'Nominal'),
+                TextFormField(
+                  controller: categoryController,
+                  decoration:
+                      const InputDecoration(labelText: 'Kategori (mis. Belanja)'),
+                ),
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: amountController,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [MoneyInputFormatter()],
+                  decoration: const InputDecoration(labelText: 'Nominal'),
                       validator: (value) {
                         if (value == null || value.isEmpty) {
                           return 'Harus diisi';
@@ -189,6 +190,7 @@ class CashflowView extends ConsumerWidget {
                             NumberFormat.decimalPattern('id_ID').format(value ~/ 100);
                       },
                     ),
+                    const SizedBox(height: 8),
                     TextFormField(
                       controller: noteController,
                       decoration: const InputDecoration(labelText: 'Catatan (opsional)'),

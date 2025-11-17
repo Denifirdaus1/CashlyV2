@@ -125,6 +125,7 @@ class PersonalSavingsView extends ConsumerWidget {
                   controller: descCtrl,
                   decoration: const InputDecoration(labelText: 'Deskripsi (opsional)'),
                 ),
+                const SizedBox(height: 8),
                 TextFormField(
                   controller: targetCtrl,
                   keyboardType: TextInputType.number,
@@ -208,7 +209,10 @@ class _GoalTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         onTap: () {
           Navigator.of(context).push(MaterialPageRoute(
-            builder: (_) => PersonalGoalDetailPage(goalId: summary.goalId, name: summary.name),
+            builder: (_) => PersonalGoalDetailPage(
+              goalId: summary.goalId,
+              name: summary.name,
+            ),
           ));
         },
         child: Padding(

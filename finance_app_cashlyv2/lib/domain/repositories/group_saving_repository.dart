@@ -14,6 +14,16 @@ abstract class GroupSavingRepository {
     String? description,
     required Money targetTotal,
     DateTime? deadline,
+    String? avatarUrl,
+  });
+
+  Future<SavingGroup> updateGroup({
+    required String groupId,
+    String? name,
+    String? description,
+    Money? targetTotal,
+    DateTime? deadline,
+    String? avatarUrl,
   });
 
   Future<List<GroupMemberSummary>> listMemberSummaries(String groupId);

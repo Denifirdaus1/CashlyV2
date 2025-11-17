@@ -81,6 +81,7 @@ class GroupDetailPage extends ConsumerWidget {
       context: context,
       isScrollControlled: true,
       builder: (ctx) {
+        final messenger = ScaffoldMessenger.of(ctx);
         return Padding(
           padding: EdgeInsets.only(
             bottom: MediaQuery.of(ctx).viewInsets.bottom,
@@ -122,18 +123,29 @@ class GroupDetailPage extends ConsumerWidget {
                     onPressed: () async {
                       if (!formKey.currentState!.validate()) return;
                       final targetRaw = targetCtrl.text.trim();
-                      await ref.read(groupSavingRepositoryProvider).addMember(
-                            groupId: groupId,
-                            displayName: nameCtrl.text,
-                            targetAmount: targetRaw.isEmpty
-                                ? null
-                                : Money.fromDouble(
-                                    double.parse(targetRaw.replaceAll(',', '')),
-                                  ),
+                      try {
+                        await ref.read(groupSavingRepositoryProvider).addMember(
+                              groupId: groupId,
+                              displayName: nameCtrl.text,
+                              targetAmount: targetRaw.isEmpty
+                                  ? null
+                                  : Money.fromDouble(
+                                      double.parse(targetRaw.replaceAll(',', '')),
+                                    ),
+                            );
+                        ref.invalidate(groupMemberSummariesProvider(groupId));
+                        ref.invalidate(groupSummariesProvider);
+                        if (context.mounted) {
+                          Navigator.of(context).pop();
+                          messenger.showSnackBar(
+                            const SnackBar(content: Text('Anggota ditambahkan')),
                           );
-                      ref.invalidate(groupMemberSummariesProvider(groupId));
-                      ref.invalidate(groupSummariesProvider);
-                      if (context.mounted) Navigator.of(context).pop();
+                        }
+                      } catch (e) {
+                        messenger.showSnackBar(
+                          SnackBar(content: Text('Gagal simpan: $e')),
+                        );
+                      }
                     },
                     icon: const Icon(Icons.save),
                     label: const Text('Simpan'),
@@ -163,6 +175,7 @@ class GroupDetailPage extends ConsumerWidget {
       context: context,
       isScrollControlled: true,
       builder: (ctx) {
+        final messenger = ScaffoldMessenger.of(ctx);
         return Padding(
           padding: EdgeInsets.only(
             bottom: MediaQuery.of(ctx).viewInsets.bottom,
@@ -255,18 +268,45 @@ class GroupDetailPage extends ConsumerWidget {
                       if (selectedMemberId == null) return;
                       final amount =
                           double.parse(amountCtrl.text.replaceAll(',', ''));
-                      await ref.read(groupSavingRepositoryProvider).addEntry(
-                            groupId: groupId,
-                            memberId: selectedMemberId!,
-                            transactionDate: selectedDate,
-                            amount: Money.fromDouble(amount),
-                            type: selectedType,
-                            note: noteCtrl.text.isEmpty ? null : noteCtrl.text,
+                      final member = members.firstWhere(
+                        (m) => m.memberId == selectedMemberId,
+                        orElse: () => members.first,
+                      );
+                      if (selectedType == SavingEntryType.withdraw &&
+                          Money.fromDouble(amount).cents >
+                              member.totalContributed.cents) {
+                        messenger.showSnackBar(
+                          SnackBar(
+                            content: Text(
+                                'Tarik melebihi saldo anggota ${member.displayName}'),
+                          ),
+                        );
+                        return;
+                      }
+
+                      try {
+                        await ref.read(groupSavingRepositoryProvider).addEntry(
+                              groupId: groupId,
+                              memberId: selectedMemberId!,
+                              transactionDate: selectedDate,
+                              amount: Money.fromDouble(amount),
+                              type: selectedType,
+                              note: noteCtrl.text.isEmpty ? null : noteCtrl.text,
+                            );
+                        ref.invalidate(groupEntriesProvider(groupId));
+                        ref.invalidate(groupMemberSummariesProvider(groupId));
+                        ref.invalidate(groupSummariesProvider);
+                        if (context.mounted) {
+                          Navigator.of(context).pop();
+                          messenger.showSnackBar(
+                            const SnackBar(content: Text('Transaksi kelompok tersimpan')),
                           );
-                      ref.invalidate(groupEntriesProvider(groupId));
-                      ref.invalidate(groupMemberSummariesProvider(groupId));
-                      ref.invalidate(groupSummariesProvider);
-                      if (context.mounted) Navigator.of(context).pop();
+                        }
+                      } catch (e) {
+                        messenger.showSnackBar(
+                          SnackBar(content: Text('Gagal simpan: $e')),
+                        );
+                      }
                     },
                     icon: const Icon(Icons.save),
                     label: const Text('Simpan'),

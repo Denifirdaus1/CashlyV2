@@ -86,6 +86,7 @@ class CashflowView extends ConsumerWidget {
       context: context,
       isScrollControlled: true,
       builder: (ctx) {
+        final messenger = ScaffoldMessenger.of(ctx);
         return Padding(
           padding: EdgeInsets.only(
             bottom: MediaQuery.of(ctx).viewInsets.bottom,
@@ -172,17 +173,30 @@ class CashflowView extends ConsumerWidget {
                       final amount = double.parse(
                         amountController.text.replaceAll(',', ''),
                       );
-                      await ref.read(cashRepositoryProvider).addTransaction(
-                            transactionDate: selectedDate,
-                            amount: Money.fromDouble(amount),
-                            type: selectedType,
-                            note: noteController.text.isEmpty
-                                ? null
-                                : noteController.text,
+                      try {
+                        await ref.read(cashRepositoryProvider).addTransaction(
+                              transactionDate: selectedDate,
+                              amount: Money.fromDouble(amount),
+                              type: selectedType,
+                              note: noteController.text.isEmpty
+                                  ? null
+                                  : noteController.text,
+                            );
+                        ref.invalidate(cashRollupProvider);
+                        ref.invalidate(cashTransactionsProvider);
+                        if (context.mounted) {
+                          Navigator.of(context).pop();
+                          messenger.showSnackBar(
+                            const SnackBar(
+                              content: Text('Transaksi cashflow tersimpan'),
+                            ),
                           );
-                      ref.invalidate(cashRollupProvider);
-                      ref.invalidate(cashTransactionsProvider);
-                      if (context.mounted) Navigator.of(context).pop();
+                        }
+                      } catch (e) {
+                        messenger.showSnackBar(
+                          SnackBar(content: Text('Gagal simpan: $e')),
+                        );
+                      }
                     },
                     icon: const Icon(Icons.save),
                     label: const Text('Simpan'),

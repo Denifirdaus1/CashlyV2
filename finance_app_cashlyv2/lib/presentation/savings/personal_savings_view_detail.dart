@@ -63,14 +63,18 @@ class PersonalGoalDetailPage extends ConsumerWidget {
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showAddEntrySheet(context, ref),
+        onPressed: () => _showAddEntrySheet(context, ref, summary),
         icon: const Icon(Icons.add),
         label: const Text('Transaksi'),
       ),
     );
   }
 
-  Future<void> _showAddEntrySheet(BuildContext context, WidgetRef ref) async {
+  Future<void> _showAddEntrySheet(
+    BuildContext context,
+    WidgetRef ref,
+    PersonalGoalSummary? summary,
+  ) async {
     final formKey = GlobalKey<FormState>();
     final amountCtrl = TextEditingController();
     final noteCtrl = TextEditingController();
@@ -81,6 +85,7 @@ class PersonalGoalDetailPage extends ConsumerWidget {
       context: context,
       isScrollControlled: true,
       builder: (ctx) {
+        final messenger = ScaffoldMessenger.of(ctx);
         return Padding(
           padding: EdgeInsets.only(
             bottom: MediaQuery.of(ctx).viewInsets.bottom,
@@ -156,16 +161,38 @@ class PersonalGoalDetailPage extends ConsumerWidget {
                     onPressed: () async {
                       if (!formKey.currentState!.validate()) return;
                       final amount = double.parse(amountCtrl.text.replaceAll(',', ''));
-                      await ref.read(personalSavingRepositoryProvider).addEntry(
-                            goalId: goalId,
-                            transactionDate: selectedDate,
-                            amount: Money.fromDouble(amount),
-                            type: selectedType,
-                            note: noteCtrl.text.isEmpty ? null : noteCtrl.text,
+                      final current = summary?.currentAmount.cents ?? 0;
+                      if (selectedType == SavingEntryType.withdraw &&
+                          Money.fromDouble(amount).cents > current) {
+                        messenger.showSnackBar(
+                          const SnackBar(
+                            content: Text('Nominal tarik melebihi saldo tujuan'),
+                          ),
+                        );
+                        return;
+                      }
+
+                      try {
+                        await ref.read(personalSavingRepositoryProvider).addEntry(
+                              goalId: goalId,
+                              transactionDate: selectedDate,
+                              amount: Money.fromDouble(amount),
+                              type: selectedType,
+                              note: noteCtrl.text.isEmpty ? null : noteCtrl.text,
+                            );
+                        ref.invalidate(personalGoalEntriesProvider(goalId));
+                        ref.invalidate(personalGoalsProvider);
+                        if (context.mounted) {
+                          Navigator.of(context).pop();
+                          messenger.showSnackBar(
+                            const SnackBar(content: Text('Transaksi tabungan tersimpan')),
                           );
-                      ref.invalidate(personalGoalEntriesProvider(goalId));
-                      ref.invalidate(personalGoalsProvider);
-                      if (context.mounted) Navigator.of(context).pop();
+                        }
+                      } catch (e) {
+                        messenger.showSnackBar(
+                          SnackBar(content: Text('Gagal simpan: $e')),
+                        );
+                      }
                     },
                     icon: const Icon(Icons.save),
                     label: const Text('Simpan'),

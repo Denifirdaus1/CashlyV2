@@ -68,6 +68,7 @@ class PersonalSavingsView extends ConsumerWidget {
       context: context,
       isScrollControlled: true,
       builder: (ctx) {
+        final messenger = ScaffoldMessenger.of(ctx);
         return Padding(
           padding: EdgeInsets.only(
             bottom: MediaQuery.of(ctx).viewInsets.bottom,
@@ -139,17 +140,30 @@ class PersonalSavingsView extends ConsumerWidget {
                     onPressed: () async {
                       if (!formKey.currentState!.validate()) return;
                       final target = double.parse(targetCtrl.text.replaceAll(',', ''));
-                      await ref
-                          .read(personalSavingRepositoryProvider)
-                          .createGoal(
-                            name: nameCtrl.text,
-                            description:
-                                descCtrl.text.isEmpty ? null : descCtrl.text,
-                            targetAmount: Money.fromDouble(target),
-                            deadline: deadline,
+                      try {
+                        await ref
+                            .read(personalSavingRepositoryProvider)
+                            .createGoal(
+                              name: nameCtrl.text,
+                              description:
+                                  descCtrl.text.isEmpty ? null : descCtrl.text,
+                              targetAmount: Money.fromDouble(target),
+                              deadline: deadline,
+                            );
+                        ref.invalidate(personalGoalsProvider);
+                        if (context.mounted) {
+                          Navigator.of(context).pop();
+                          messenger.showSnackBar(
+                            const SnackBar(
+                              content: Text('Tujuan tabungan dibuat'),
+                            ),
                           );
-                      ref.invalidate(personalGoalsProvider);
-                      if (context.mounted) Navigator.of(context).pop();
+                        }
+                      } catch (e) {
+                        messenger.showSnackBar(
+                          SnackBar(content: Text('Gagal simpan: $e')),
+                        );
+                      }
                     },
                     icon: const Icon(Icons.save),
                     label: const Text('Simpan'),

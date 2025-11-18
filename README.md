@@ -10,9 +10,9 @@ Cashly V2 adalah aplikasi Flutter + Supabase untuk mencatat arus kas pribadi sek
 - Tech: Flutter 3.x (Dart ^3.9.2), Riverpod 3, Supabase Flutter 2.x, Google Fonts; GoRouter sudah terpasang bila ingin menambah rute.
 
 ## Struktur Repo
-- `finance_app_cashlyv2/` — kode aplikasi Flutter.
-- `Project_knowledge/` — PRD, ERD, dan dokumen skema database.
-- `LICENSE`, `.gitignore`, `.vscode/` — housekeeping.
+- `finance_app_cashlyv2/` - kode aplikasi Flutter.
+- `Project_knowledge/` - PRD, ERD, dan dokumen skema database.
+- `LICENSE`, `.gitignore`, `.vscode/` - housekeeping.
 
 ## Menjalankan Aplikasi
 1) Pastikan Flutter 3.x terpasang (`flutter doctor`).

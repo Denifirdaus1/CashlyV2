@@ -14,19 +14,37 @@ class SavingsView extends StatelessWidget {
         children: const [
           Padding(
             padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: TabBar(
-              labelColor: Colors.white,
-              unselectedLabelColor: Colors.black54,
-              indicator: BoxDecoration(
-                color: Color(0xFF68CEC3),
-                borderRadius: BorderRadius.all(Radius.circular(12)),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.all(Radius.circular(14)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black12,
+                    blurRadius: 8,
+                    offset: Offset(0, 3),
+                  ),
+                ],
               ),
-              indicatorPadding: EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-              labelPadding: EdgeInsets.symmetric(horizontal: 16),
-              tabs: [
-                Tab(text: 'Pribadi'),
-                Tab(text: 'Kelompok'),
-              ],
+              child: TabBar(
+                labelColor: Colors.white,
+                unselectedLabelColor: Colors.black54,
+                labelStyle:
+                    TextStyle(fontWeight: FontWeight.w700, letterSpacing: 0.2),
+                indicatorSize: TabBarIndicatorSize.tab,
+                indicator: BoxDecoration(
+                  color: Color(0xFF68CEC3),
+                  borderRadius: BorderRadius.all(Radius.circular(12)),
+                ),
+                indicatorPadding: EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                labelPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                overlayColor: WidgetStatePropertyAll(Colors.transparent),
+                dividerColor: Colors.transparent,
+                tabs: [
+                  Tab(text: 'Pribadi'),
+                  Tab(text: 'Kelompok'),
+                ],
+              ),
             ),
           ),
           Expanded(

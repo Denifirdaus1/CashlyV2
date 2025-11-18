@@ -116,16 +116,18 @@ class PersonalSavingsView extends ConsumerWidget {
                     ),
                   ],
                 ),
+                const SizedBox(height: 6),
                 TextFormField(
                   controller: nameCtrl,
                   decoration: const InputDecoration(labelText: 'Nama tujuan'),
                   validator: (val) => val == null || val.isEmpty ? 'Harus diisi' : null,
                 ),
+                const SizedBox(height: 10),
                 TextFormField(
                   controller: descCtrl,
                   decoration: const InputDecoration(labelText: 'Deskripsi (opsional)'),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 10),
                 TextFormField(
                   controller: targetCtrl,
                   keyboardType: TextInputType.number,
@@ -138,7 +140,7 @@ class PersonalSavingsView extends ConsumerWidget {
                     return null;
                   },
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
                 _PresetRow(
                   onAdd: (increment) {
                     final current = Money.fromFormatted(targetCtrl.text);
@@ -151,7 +153,7 @@ class PersonalSavingsView extends ConsumerWidget {
                         NumberFormat.decimalPattern('id_ID').format(value ~/ 100);
                   },
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(

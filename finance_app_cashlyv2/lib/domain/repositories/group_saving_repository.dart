@@ -43,6 +43,7 @@ abstract class GroupSavingRepository {
   });
 
   Future<void> deleteMember(String memberId);
+  Future<void> deleteGroup(String groupId);
 
   Future<List<SavingGroupEntry>> listEntries(String groupId);
 

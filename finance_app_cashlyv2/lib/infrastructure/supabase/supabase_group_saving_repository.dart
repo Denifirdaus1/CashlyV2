@@ -146,6 +146,14 @@ class SupabaseGroupSavingRepository implements GroupSavingRepository {
   }
 
   @override
+  Future<void> deleteGroup(String groupId) async {
+    await _client
+        .from('saving_groups')
+        .update({'deleted_at': DateTime.now().toIso8601String()})
+        .eq('id', groupId);
+  }
+
+  @override
   Future<List<SavingGroupEntry>> listEntries(String groupId) async {
     final rows = await _client
         .from('saving_group_entries')
@@ -189,9 +197,10 @@ class SupabaseGroupSavingRepository implements GroupSavingRepository {
     return GroupSummary(
       groupId: row['group_id'] as String,
       name: row['name'] as String,
-      targetTotal: Money(row['target_total_cents'] as int? ?? 0),
-      totalContributed: Money(row['total_contributed_cents'] as int? ?? 0),
+      targetTotal: _parseMoney(row['target_total_cents']),
+      totalContributed: _parseMoney(row['total_contributed_cents']),
       memberCount: row['member_count'] as int? ?? 0,
+      avatarUrl: row['avatar_url'] as String?,
     );
   }
 
@@ -200,11 +209,12 @@ class SupabaseGroupSavingRepository implements GroupSavingRepository {
       id: row['id'] as String,
       name: row['name'] as String,
       description: row['description'] as String?,
-      targetTotal: Money(row['target_total_cents'] as int? ?? 0),
+      targetTotal: _parseMoney(row['target_total_cents']),
       deadline: row['deadline'] != null
           ? DateTime.parse(row['deadline'] as String)
           : null,
       createdAt: DateTime.parse(row['created_at'] as String),
+      avatarUrl: row['avatar_url'] as String?,
     );
   }
 
@@ -250,5 +260,13 @@ class SupabaseGroupSavingRepository implements GroupSavingRepository {
       note: row['note'] as String?,
       createdAt: DateTime.parse(row['created_at'] as String),
     );
+  }
+
+  Money _parseMoney(dynamic value) {
+    if (value is int) return Money(value);
+    if (value is double) return Money(value.round());
+    if (value is num) return Money(value.toInt());
+    if (value is String) return Money(int.tryParse(value.split('.').first) ?? 0);
+    return Money.zero;
   }
 }

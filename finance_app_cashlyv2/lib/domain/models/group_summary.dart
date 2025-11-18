@@ -6,6 +6,7 @@ class GroupSummary {
   final Money targetTotal;
   final Money totalContributed;
   final int memberCount;
+  final String? avatarUrl;
 
   const GroupSummary({
     required this.groupId,
@@ -13,6 +14,7 @@ class GroupSummary {
     required this.targetTotal,
     required this.totalContributed,
     required this.memberCount,
+    this.avatarUrl,
   });
 
   double get progress {

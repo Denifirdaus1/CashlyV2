@@ -7,6 +7,7 @@ class SavingGroup {
   final Money targetTotal;
   final DateTime? deadline;
   final DateTime createdAt;
+  final String? avatarUrl;
 
   SavingGroup({
     required this.id,
@@ -15,5 +16,6 @@ class SavingGroup {
     required this.createdAt,
     this.description,
     this.deadline,
+    this.avatarUrl,
   });
 }

@@ -35,10 +35,11 @@ class PersonalGoalDetailPage extends ConsumerWidget {
       ),
       orElse: () => null,
     );
+    final effectiveName = summary?.name ?? name;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(name),
+        title: Text(effectiveName),
         actions: [
           IconButton(
             icon: const Icon(Icons.edit),
@@ -164,6 +165,7 @@ class PersonalGoalDetailPage extends ConsumerWidget {
                     ),
                   ],
                 ),
+                const SizedBox(height: 6),
                 DropdownButtonFormField<SavingEntryType>(
                   initialValue: selectedType,
                   decoration: const InputDecoration(labelText: 'Jenis'),
@@ -177,7 +179,7 @@ class PersonalGoalDetailPage extends ConsumerWidget {
                       .toList(),
                   onChanged: (val) => selectedType = val ?? selectedType,
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 10),
                 TextFormField(
                   controller: amountCtrl,
                   keyboardType: TextInputType.number,
@@ -189,7 +191,7 @@ class PersonalGoalDetailPage extends ConsumerWidget {
                     return digits.isEmpty ? 'Nominal tidak valid' : null;
                   },
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
                 _PresetRow(
                   onAdd: (inc) {
                     final current = Money.fromFormatted(amountCtrl.text);
@@ -202,11 +204,12 @@ class PersonalGoalDetailPage extends ConsumerWidget {
                         NumberFormat.decimalPattern('id_ID').format(val ~/ 100);
                   },
                 ),
+                const SizedBox(height: 12),
                 TextFormField(
                   controller: noteCtrl,
                   decoration: const InputDecoration(labelText: 'Catatan (opsional)'),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
@@ -265,7 +268,8 @@ class PersonalGoalDetailPage extends ConsumerWidget {
     PersonalGoalSummary? summary,
   ) async {
     final formKey = GlobalKey<FormState>();
-    final nameCtrl = TextEditingController(text: name);
+    final currentName = summary?.name ?? name;
+    final nameCtrl = TextEditingController(text: currentName);
     final descCtrl = TextEditingController();
     final targetCtrl = TextEditingController(
       text: summary != null
@@ -321,17 +325,18 @@ class PersonalGoalDetailPage extends ConsumerWidget {
                     ),
                   ],
                 ),
+                const SizedBox(height: 6),
                 TextFormField(
                   controller: nameCtrl,
                   decoration: const InputDecoration(labelText: 'Nama tujuan'),
                   validator: (val) => val == null || val.isEmpty ? 'Harus diisi' : null,
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 10),
                 TextFormField(
                   controller: descCtrl,
                   decoration: const InputDecoration(labelText: 'Deskripsi (opsional)'),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 10),
                 TextFormField(
                   controller: targetCtrl,
                   keyboardType: TextInputType.number,
@@ -344,7 +349,7 @@ class PersonalGoalDetailPage extends ConsumerWidget {
                     return null;
                   },
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(

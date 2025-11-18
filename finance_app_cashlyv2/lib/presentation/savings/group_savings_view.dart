@@ -115,17 +115,19 @@ class GroupSavingsView extends ConsumerWidget {
                     ),
                   ],
                 ),
+                const SizedBox(height: 6),
                 TextFormField(
                   controller: nameCtrl,
                   decoration: const InputDecoration(labelText: 'Tujuan menabung'),
                   validator: (val) => val == null || val.isEmpty ? 'Harus diisi' : null,
                 ),
+                const SizedBox(height: 10),
                 TextFormField(
                   controller: descCtrl,
                   decoration:
                       const InputDecoration(labelText: 'Deskripsi (opsional)'),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 10),
                 TextFormField(
                   controller: targetCtrl,
                   keyboardType: TextInputType.number,
@@ -139,7 +141,7 @@ class GroupSavingsView extends ConsumerWidget {
                     return null;
                   },
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
                 _PresetRow(
                   onAdd: (inc) {
                     final current = Money.fromFormatted(targetCtrl.text);
@@ -152,7 +154,7 @@ class GroupSavingsView extends ConsumerWidget {
                         NumberFormat.decimalPattern('id_ID').format(val ~/ 100);
                   },
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
@@ -208,6 +210,7 @@ class _GroupTile extends StatelessWidget {
             builder: (_) => GroupDetailPage(
               groupId: summary.groupId,
               name: summary.name,
+              avatarUrl: summary.avatarUrl,
             ),
           ));
         },
@@ -215,14 +218,15 @@ class _GroupTile extends StatelessWidget {
           padding: const EdgeInsets.all(12),
           child: Row(
             children: [
-              Container(
-                width: 46,
-                height: 46,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF68CEC3).withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(Icons.groups, color: Color(0xFF68CEC3)),
+              CircleAvatar(
+                radius: 23,
+                backgroundColor: const Color(0xFF68CEC3).withValues(alpha: 0.15),
+                backgroundImage: summary.avatarUrl != null
+                    ? NetworkImage(summary.avatarUrl!)
+                    : null,
+                child: summary.avatarUrl == null
+                    ? const Icon(Icons.groups, color: Color(0xFF68CEC3))
+                    : null,
               ),
               const SizedBox(width: 12),
               Expanded(

@@ -51,32 +51,48 @@ class HomeScreen extends ConsumerWidget {
                   ],
                 ),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
-                  child: SegmentedButton<HomeMode>(
-                    style: SegmentedButton.styleFrom(
-                      selectedBackgroundColor: AppColors.primary,
-                      selectedForegroundColor: Colors.white,
-                      foregroundColor: AppColors.textSecondary,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                  padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 18),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: SegmentedButton<HomeMode>(
+                      style: SegmentedButton.styleFrom(
+                        selectedBackgroundColor: AppColors.primary,
+                        selectedForegroundColor: Colors.white,
+                        foregroundColor: AppColors.textSecondary,
+                        visualDensity: const VisualDensity(horizontal: -1, vertical: -1.5),
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                        minimumSize: const Size.fromHeight(44),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                       ),
+                      segments: const [
+                        ButtonSegment(
+                          value: HomeMode.cashflow,
+                          label: Text(
+                            'Keuangan',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(fontSize: 14),
+                          ),
+                          icon: Icon(Icons.account_balance_wallet, size: 20),
+                        ),
+                        ButtonSegment(
+                          value: HomeMode.savings,
+                          label: Text(
+                            'Tabungan',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(fontSize: 14),
+                          ),
+                          icon: Icon(Icons.savings, size: 20),
+                        ),
+                      ],
+                      selected: {mode},
+                      onSelectionChanged: (value) {
+                        ref.read(homeModeProvider.notifier).setMode(value.first);
+                      },
                     ),
-                    segments: const [
-                      ButtonSegment(
-                        value: HomeMode.cashflow,
-                        label: Text('Keuangan'),
-                        icon: Icon(Icons.account_balance_wallet),
-                      ),
-                      ButtonSegment(
-                        value: HomeMode.savings,
-                        label: Text('Tabungan'),
-                        icon: Icon(Icons.savings),
-                      ),
-                    ],
-                    selected: {mode},
-                    onSelectionChanged: (value) {
-                      ref.read(homeModeProvider.notifier).setMode(value.first);
-                    },
                   ),
                 ),
               ),

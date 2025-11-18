@@ -16,4 +16,9 @@ class GroupMemberSummary {
     this.targetAmount,
     this.avatarUrl,
   });
+
+  double get progress {
+    if (targetAmount == null || targetAmount!.cents == 0) return 0;
+    return (totalContributed.cents / targetAmount!.cents).clamp(0, 1);
+  }
 }

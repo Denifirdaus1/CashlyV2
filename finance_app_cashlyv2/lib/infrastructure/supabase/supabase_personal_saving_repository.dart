@@ -123,7 +123,7 @@ class SupabasePersonalSavingRepository implements PersonalSavingRepository {
       id: row['id'] as String,
       name: row['name'] as String,
       description: row['description'] as String?,
-      targetAmount: Money(row['target_amount_cents'] as int? ?? 0),
+      targetAmount: _parseMoney(row['target_amount_cents']),
       deadline: row['deadline'] != null
           ? DateTime.parse(row['deadline'] as String)
           : null,
@@ -135,8 +135,8 @@ class SupabasePersonalSavingRepository implements PersonalSavingRepository {
     return PersonalGoalSummary(
       goalId: row['goal_id'] as String,
       name: row['name'] as String,
-      targetAmount: Money(row['target_amount_cents'] as int? ?? 0),
-      currentAmount: Money(row['current_amount_cents'] as int? ?? 0),
+      targetAmount: _parseMoney(row['target_amount_cents']),
+      currentAmount: _parseMoney(row['current_amount_cents']),
     );
   }
 
@@ -150,10 +150,18 @@ class SupabasePersonalSavingRepository implements PersonalSavingRepository {
       id: row['id'] as String,
       goalId: row['goal_id'] as String,
       transactionDate: DateTime.parse(row['transaction_date'] as String),
-      amount: Money(row['amount_cents'] as int? ?? 0),
+      amount: _parseMoney(row['amount_cents']),
       type: type,
       note: row['note'] as String?,
       createdAt: DateTime.parse(row['created_at'] as String),
     );
+  }
+
+  Money _parseMoney(dynamic value) {
+    if (value is int) return Money(value);
+    if (value is double) return Money(value.round());
+    if (value is num) return Money(value.toInt());
+    if (value is String) return Money(int.tryParse(value.split('.').first) ?? 0);
+    return Money.zero;
   }
 }

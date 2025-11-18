@@ -39,10 +39,13 @@ class GroupDetailPage extends ConsumerWidget {
               targetTotal: Money.zero,
               totalContributed: Money.zero,
               memberCount: 0,
+              avatarUrl: avatarUrl,
             ),
           ),
           orElse: () => null,
         );
+    final effectiveName = summary?.name ?? name;
+    final effectiveAvatar = summary?.avatarUrl ?? avatarUrl;
 
     return DefaultTabController(
       length: 3,
@@ -53,13 +56,13 @@ class GroupDetailPage extends ConsumerWidget {
               CircleAvatar(
                 backgroundColor: const Color(0xFF68CEC3).withValues(alpha: 0.15),
                 backgroundImage:
-                    avatarUrl != null ? NetworkImage(avatarUrl!) : null,
-                child: avatarUrl == null
+                    effectiveAvatar != null ? NetworkImage(effectiveAvatar) : null,
+                child: effectiveAvatar == null
                     ? const Icon(Icons.groups, color: Color(0xFF68CEC3))
                     : null,
               ),
               const SizedBox(width: 10),
-              Text(name),
+              Text(effectiveName),
             ],
           ),
           bottom: const TabBar(
@@ -74,11 +77,47 @@ class GroupDetailPage extends ConsumerWidget {
               icon: const Icon(Icons.edit),
               onPressed: () => _showEditGroup(context, ref, summary),
             ),
+            IconButton(
+              icon: const Icon(Icons.delete),
+              onPressed: () async {
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text('Hapus kelompok?'),
+                    content: const Text(
+                        'Tindakan ini akan menghapus tujuan dan transaksi kelompok.'),
+                    actions: [
+                      TextButton(
+                          onPressed: () => Navigator.pop(ctx, false),
+                          child: const Text('Batal')),
+                      TextButton(
+                          onPressed: () => Navigator.pop(ctx, true),
+                          child: const Text('Hapus')),
+                    ],
+                  ),
+                );
+                if (confirm == true) {
+                  try {
+                    await ref.read(groupSavingRepositoryProvider).deleteGroup(groupId);
+                    ref.invalidate(groupSummariesProvider);
+                    ref.invalidate(groupEntriesProvider(groupId));
+                    ref.invalidate(groupMemberSummariesProvider(groupId));
+                    if (context.mounted) Navigator.of(context).pop();
+                  } catch (e) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Gagal hapus: $e')),
+                      );
+                    }
+                  }
+                }
+              },
+            ),
           ],
         ),
         body: TabBarView(
           children: [
-            _SummaryTab(summary: summary),
+            _SummaryTab(summary: summary, members: memberSummaries),
             _MemberTab(
               members: memberSummaries,
               entries: entries,
@@ -150,14 +189,14 @@ class GroupDetailPage extends ConsumerWidget {
                         : null,
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 10),
                 const Text('Tambah Anggota', style: TextStyle(fontWeight: FontWeight.w600)),
                 TextFormField(
                   controller: nameCtrl,
                   decoration: const InputDecoration(labelText: 'Nama'),
                   validator: (val) => val == null || val.isEmpty ? 'Harus diisi' : null,
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 10),
                 TextFormField(
                   controller: targetCtrl,
                   keyboardType: TextInputType.number,
@@ -165,7 +204,7 @@ class GroupDetailPage extends ConsumerWidget {
                   decoration: const InputDecoration(
                       labelText: 'Target nominal (opsional)'),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
                 _PresetRow(
                   onAdd: (inc) {
                     final current = Money.fromFormatted(targetCtrl.text);
@@ -178,7 +217,7 @@ class GroupDetailPage extends ConsumerWidget {
                         NumberFormat.decimalPattern('id_ID').format(val ~/ 100);
                   },
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
@@ -290,6 +329,7 @@ class GroupDetailPage extends ConsumerWidget {
                   onChanged: (val) => selectedMemberId = val,
                   validator: (val) => val == null ? 'Pilih anggota' : null,
                 ),
+                const SizedBox(height: 6),
                 DropdownButtonFormField<SavingEntryType>(
                   initialValue: selectedType,
                   decoration: const InputDecoration(labelText: 'Jenis'),
@@ -303,7 +343,7 @@ class GroupDetailPage extends ConsumerWidget {
                       .toList(),
                   onChanged: (val) => selectedType = val ?? selectedType,
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 10),
                 TextFormField(
                   controller: amountCtrl,
                   keyboardType: TextInputType.number,
@@ -315,7 +355,7 @@ class GroupDetailPage extends ConsumerWidget {
                     return digits.isEmpty ? 'Nominal tidak valid' : null;
                   },
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
                 _PresetRow(
                   onAdd: (inc) {
                     final current = Money.fromFormatted(amountCtrl.text);
@@ -328,11 +368,12 @@ class GroupDetailPage extends ConsumerWidget {
                         NumberFormat.decimalPattern('id_ID').format(val ~/ 100);
                   },
                 ),
+                const SizedBox(height: 12),
                 TextFormField(
                   controller: noteCtrl,
                   decoration: const InputDecoration(labelText: 'Catatan (opsional)'),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
@@ -398,7 +439,8 @@ class GroupDetailPage extends ConsumerWidget {
     GroupSummary? summary,
   ) async {
     final formKey = GlobalKey<FormState>();
-    final nameCtrl = TextEditingController(text: name);
+    final currentName = summary?.name ?? name;
+    final nameCtrl = TextEditingController(text: currentName);
     final descCtrl = TextEditingController();
     final targetCtrl = TextEditingController(
       text: summary != null
@@ -409,7 +451,7 @@ class GroupDetailPage extends ConsumerWidget {
     File? pickedImage;
     final picker = ImagePicker();
     final storage = SupabaseStorageService(ref.read(supabaseClientProvider));
-    String? avatar = avatarUrl;
+    String? avatar = summary?.avatarUrl ?? avatarUrl;
 
     await showModalBottomSheet(
       context: context,
@@ -517,11 +559,13 @@ class GroupDetailPage extends ConsumerWidget {
 
 class _SummaryTab extends StatelessWidget {
   final GroupSummary? summary;
-  const _SummaryTab({required this.summary});
+  final AsyncValue<List<GroupMemberSummary>> members;
+  const _SummaryTab({required this.summary, required this.members});
 
   @override
   Widget build(BuildContext context) {
     if (summary == null) return const Center(child: CircularProgressIndicator());
+    final percent = (summary!.progress * 100).clamp(0, 100);
     return ListView(
       padding: const EdgeInsets.all(12),
       children: [
@@ -531,22 +575,135 @@ class _SummaryTab extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(summary!.name,
-                    style:
-                        const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(summary!.name,
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w700, fontSize: 16)),
+                    ),
+                    Container(
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF68CEC3).withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text('${percent.toStringAsFixed(0)}%',
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF1E8B82))),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 12),
                 LinearProgressIndicator(value: summary!.progress),
                 const SizedBox(height: 8),
                 Text(
                   '${summary!.totalContributed.format()} / ${summary!.targetTotal.format()}',
+                  style: const TextStyle(fontSize: 12, color: Colors.black87),
                 ),
+                const SizedBox(height: 4),
+                Text('Jumlah anggota: ${summary!.memberCount}',
+                    style:
+                        const TextStyle(fontSize: 12, color: Colors.black54)),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Anggota',
+                    style:
+                        TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
                 const SizedBox(height: 8),
-                Text('Jumlah anggota: ${summary!.memberCount}'),
+                members.when(
+                  data: (list) => list.isEmpty
+                      ? const Text('Belum ada anggota.')
+                      : Column(
+                          children: list
+                              .map((m) => _MemberProgressTile(summary: m))
+                              .toList(),
+                        ),
+                  loading: () =>
+                      const Padding(
+                          padding: EdgeInsets.all(12),
+                          child: Center(child: CircularProgressIndicator())),
+                  error: (err, stack) => Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: Text(err.toString(),
+                        style: const TextStyle(color: Colors.red)),
+                  ),
+                ),
               ],
             ),
           ),
         ),
       ],
+    );
+  }
+}
+
+class _MemberProgressTile extends StatelessWidget {
+  final GroupMemberSummary summary;
+  const _MemberProgressTile({required this.summary});
+
+  @override
+  Widget build(BuildContext context) {
+    final hasTarget = summary.targetAmount != null && summary.targetAmount!.cents > 0;
+    final percent = hasTarget ? (summary.progress * 100).clamp(0, 100) : null;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          CircleAvatar(
+            backgroundColor: const Color(0xFF68CEC3).withValues(alpha: 0.15),
+            backgroundImage:
+                summary.avatarUrl != null ? NetworkImage(summary.avatarUrl!) : null,
+            child: summary.avatarUrl == null
+                ? const Icon(Icons.person, color: Color(0xFF68CEC3))
+                : null,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(summary.displayName,
+                    style: const TextStyle(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 4),
+                LinearProgressIndicator(
+                  value: hasTarget ? summary.progress : 0,
+                  minHeight: 6,
+                  backgroundColor: Colors.grey.shade200,
+                  color: const Color(0xFF68CEC3),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  hasTarget
+                      ? '${summary.totalContributed.format()} / ${summary.targetAmount!.format()}'
+                      : 'Terkumpul: ${summary.totalContributed.format()}',
+                  style: const TextStyle(fontSize: 12, color: Colors.black54),
+                ),
+              ],
+            ),
+          ),
+          if (percent != null)
+            Padding(
+              padding: const EdgeInsets.only(left: 8),
+              child: Text('${percent.toStringAsFixed(0)}%',
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w700, color: Color(0xFF1E8B82))),
+            ),
+        ],
+      ),
     );
   }
 }

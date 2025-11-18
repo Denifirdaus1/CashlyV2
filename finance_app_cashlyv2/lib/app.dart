@@ -9,6 +9,7 @@ class FinanceApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Cashly V2',
+      debugShowCheckedModeBanner: false,
       theme: AppTheme.build(),
       home: const HomeScreen(),
     );
